@@ -9,10 +9,10 @@ from pathlib import Path
 root_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(root_dir))
 
-import asyncio
 import logging
 from config.config import TELEGRAM_BOT_TOKEN
 from src.bot.telegram_bot import setup_bot
+from src.db.sqlite_store import init_db
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -29,6 +29,9 @@ def main():
         return
     
     logger.info("Đang khởi động bot...")
+
+    # Khởi tạo database (nếu chưa có)
+    init_db()
     
     # Setup bot
     application = setup_bot(TELEGRAM_BOT_TOKEN)

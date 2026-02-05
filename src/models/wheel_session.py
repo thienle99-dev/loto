@@ -18,6 +18,7 @@ class WheelSession:
         session_id: Optional[str] = None,
         game_name: Optional[str] = None,
         owner_id: Optional[int] = None,
+        round_name: Optional[str] = None,
     ):
         """
         Khởi tạo wheel session
@@ -50,6 +51,8 @@ class WheelSession:
         # Thông tin meta cho game/session
         self.game_name = game_name
         self.owner_id = owner_id
+        # Tên vòng chơi (vòng mới) mà session này thuộc về, nếu có
+        self.round_name = round_name
         # Danh sách người tham gia game: [{user_id, name}, ...]
         self.participants: list[dict] = []
         # Trạng thái game đã bắt đầu hay chưa (host dùng /startsession)
@@ -98,9 +101,14 @@ class WheelSession:
             'history': self.history,
             'game_name': self.game_name,
             'owner_id': self.owner_id,
+            'round_name': self.round_name,
             'participants': self.participants,
             'started': self.started,
             'winners': self.winners,
+            # Các trường phát sinh thêm trong quá trình chơi (nếu có)
+            # Dùng getattr để tránh crash nếu thuộc tính chưa được set
+            'tickets': getattr(self, 'tickets', {}),
+            'user_tickets': getattr(self, 'user_tickets', {}),
         }
     
     @classmethod
@@ -113,6 +121,7 @@ class WheelSession:
             session_id=data.get('id'),
             game_name=data.get('game_name'),
             owner_id=data.get('owner_id'),
+            round_name=data.get('round_name'),
         )
         session.available_numbers = data.get('available_numbers', session.available_numbers)
         session.removed_numbers = data.get('removed_numbers', [])
@@ -124,6 +133,13 @@ class WheelSession:
         session.participants = data.get('participants', [])
         session.started = data.get('started', False)
         session.winners = data.get('winners', [])
+        # Khôi phục thêm thông tin vé nếu có
+        tickets = data.get('tickets')
+        if isinstance(tickets, dict):
+            session.tickets = tickets
+        user_tickets = data.get('user_tickets')
+        if isinstance(user_tickets, dict):
+            session.user_tickets = user_tickets
         return session
 
     # Quản lý người tham gia

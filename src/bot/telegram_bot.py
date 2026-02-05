@@ -33,6 +33,12 @@ from config.config import (
     MAX_NUMBERS,
     DEFAULT_REMOVE_AFTER_SPIN
 )
+from src.db.sqlite_store import (
+    load_stats,
+    save_stats,
+    load_last_result,
+    save_last_result,
+)
 
 # Setup logging
 logging.basicConfig(
@@ -44,11 +50,15 @@ logger = logging.getLogger(__name__)
 # Session manager (shared instance)
 session_manager = SessionManager()
 
-# Lưu kết quả game gần nhất theo chat: {chat_id: {...}}
+# Lưu kết quả game gần nhất theo chat (cache RAM): {chat_id: {...}}
 last_results: dict[int, dict] = {}
 
-# Thống kê wins/participations theo chat
+# Thống kê wins/participations theo chat (cache RAM)
 stats: dict[int, dict] = {}
+
+# Vòng chơi (vòng mới) đang hoạt động theo chat:
+# {chat_id: {"round_name": str, "owner_id": int, "created_at": str}}
+active_rounds: dict[int, dict] = {}
 
 # Cooldown chống spam
 COOLDOWN_SPIN_SECONDS = 2
@@ -93,6 +103,10 @@ TICKET_IMAGES: dict[str, Path] = {
     "luc2": Path(__file__).parent.parent.parent / "images" / "luc_2.jpg",
     "tim1": Path(__file__).parent.parent.parent / "images" / "tim_1.jpg",
     "tim2": Path(__file__).parent.parent.parent / "images" / "tim_2.jpg",
+    "vang1": Path(__file__).parent.parent.parent / "images" / "vang_1.jpg",
+    "vang2": Path(__file__).parent.parent.parent / "images" / "vang_2.jpg",
+    "xanh1": Path(__file__).parent.parent.parent / "images" / "xanh_1.jpg",
+    "xanh2": Path(__file__).parent.parent.parent / "images" / "xanh_2.jpg",
 }
 
 
@@ -103,6 +117,83 @@ def escape_markdown(text: str) -> str:
     for char in special_chars:
         text = text.replace(char, f'\\{char}')
     return text
+
+
+def get_chat_stats(chat_id: int) -> dict:
+    """
+    Lấy thống kê cho một chat.
+    Ưu tiên cache RAM, nếu chưa có thì load từ SQLite.
+    """
+    chat_stats = stats.get(chat_id)
+    if chat_stats is not None:
+        return chat_stats
+
+    loaded = load_stats(chat_id)
+    if loaded:
+        stats[chat_id] = loaded
+        return loaded
+
+    # Nếu chưa có trong DB thì khởi tạo rỗng
+    empty = {"wins": {}, "participations": {}}
+    stats[chat_id] = empty
+    return empty
+
+
+def get_last_result_for_chat(chat_id: int) -> dict | None:
+    """
+    Lấy kết quả game gần nhất cho một chat.
+    Ưu tiên cache RAM, nếu chưa có thì load từ SQLite.
+    """
+    data = last_results.get(chat_id)
+    if data is not None:
+        return data
+
+    loaded = load_last_result(chat_id)
+    if loaded:
+        last_results[chat_id] = loaded
+        return loaded
+
+    return None
+
+
+async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /vongmoi <tên_vòng> - tạo vòng chơi mới trong chat."""
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+    user_id = user.id
+
+    if not context.args:
+        await update.message.reply_text(
+            "❌ *Sai cú pháp\\!*\n\n"
+            "Sử dụng: `/vongmoi <tên_vòng>`\n"
+            "Ví dụ: `/vongmoi Loto tối nay`",
+            parse_mode="Markdown",
+        )
+        return
+
+    round_name = " ".join(context.args).strip()
+    if not round_name:
+        await update.message.reply_text(
+            "❌ Tên vòng không được để trống.",
+            parse_mode="Markdown",
+        )
+        return
+
+    # Nếu đang có vòng cũ, ghi đè bằng vòng mới
+    active_rounds[chat_id] = {
+        "round_name": round_name,
+        "owner_id": user_id,
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+    }
+
+    await update.message.reply_text(
+        f"✅ *Đã tạo vòng chơi mới\\!* \n\n"
+        f"🔄 Tên vòng: `{escape_markdown(round_name)}`\n\n"
+        "Giờ bạn có thể dùng:\n"
+        "• `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo các game trong vòng này.\n"
+        "• `/ketthuc` để kết thúc từng game.",
+        parse_mode="Markdown",
+    )
 
 
 def is_session_expired(session) -> bool:
@@ -187,8 +278,9 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = (
         "📋 *Menu thao tác nhanh*\n\n"
-        "🕹️ *Game & người chơi*\n"
-        "• `/newsession <tên_game>` \\- tạo game mới trong chat\n"
+        "🕹️ *Vòng chơi & game*\n"
+        "• `/vongmoi <tên_vòng>` \\- tạo vòng chơi mới trong chat\n"
+        "• `/newsession <tên_game>` \\- tạo game mới trong vòng / chat\n"
         "• `/startsession` \\- host bấm để *bắt đầu* game\n"
         "• `/join` \\- tham gia game hiện tại\n"
         "• `/players` \\- xem danh sách người chơi\n"
@@ -233,7 +325,7 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if session_manager.has_session(chat_id):
         await update.message.reply_text(
             "⚠️ Chat này đang có game hoạt động\\. "
-            "Vui lòng dùng `/endsession` để kết thúc hoặc `/clear` để xoá trước khi tạo game mới\\.",
+            "Vui lòng dùng `/ketthuc` để kết thúc hoặc `/xoa` để xoá trước khi tạo game mới\\.",
             parse_mode='Markdown'
         )
         return
@@ -267,8 +359,17 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         # Gắn thêm meta vào session
         session.game_name = game_name
         session.owner_id = user_id
+
+        # Nếu đang có vòng chơi active thì gắn tên vòng vào session
+        round_info = active_rounds.get(chat_id)
+        if round_info:
+            session.round_name = round_info.get("round_name")
+
         # Owner auto join
         session.add_participant(user_id=user_id, name=user.full_name or (user.username or str(user_id)))
+
+        # Lưu session xuống DB
+        session_manager.persist_session(chat_id)
 
         await update.message.reply_text(
             f"✅ *Đã tạo game mới\\!*\n\n"
@@ -293,7 +394,7 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if session_manager.has_session(chat_id):
         await update.message.reply_text(
             "⚠️ Chat này đang có game hoạt động\\. "
-            "Vui lòng dùng `/endsession` để kết thúc hoặc `/clear` để xoá trước khi tạo game mới\\.",
+            "Vui lòng dùng `/ketthuc` để kết thúc hoặc `/xoa` để xoá trước khi tạo game mới\\.",
             parse_mode='Markdown'
         )
         return
@@ -338,7 +439,16 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             DEFAULT_REMOVE_AFTER_SPIN
         )
         session.owner_id = user_id
+
+        # Nếu đang có vòng chơi active thì gắn tên vòng vào session
+        round_info = active_rounds.get(chat_id)
+        if round_info:
+            session.round_name = round_info.get("round_name")
+
         session.add_participant(user_id=user_id, name=user.full_name or (user.username or str(user_id)))
+
+        # Lưu session xuống DB
+        session_manager.persist_session(chat_id)
         
         await update.message.reply_text(
             f"✅ *Đã tạo game mới\\!*\n\n"
@@ -402,6 +512,9 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message += "\n\n⚠️ Danh sách đã hết\\! Sử dụng `/reset` để làm mới\\."
         
         await update.message.reply_text(message, parse_mode='Markdown')
+
+        # Lưu session sau khi quay
+        session_manager.persist_session(chat_id)
     except ValueError as e:
         await update.message.reply_text(f"❌ {str(e)}")
 
@@ -423,6 +536,9 @@ async def toggle_remove_command(update: Update, context: ContextTypes.DEFAULT_TY
     new_mode = not session.remove_after_spin
     set_remove_mode(session, new_mode)
     
+    # Lưu cấu hình session
+    session_manager.persist_session(chat_id)
+
     mode_text = "Có" if new_mode else "Không"
     await update.message.reply_text(
         f"⚙️ *Chế độ loại bỏ:* `{mode_text}`\n\n"
@@ -445,6 +561,9 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     reset_session(session)
+    # Lưu session sau khi reset
+    session_manager.persist_session(chat_id)
+
     await update.message.reply_text(
         f"🔄 *Đã reset\\!*\n\n"
         f"📊 Danh sách đã được khôi phục về ban đầu\\.\n"
@@ -675,6 +794,8 @@ async def players_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown'
     )
 
+    # Chỉ hiển thị, không thay đổi session -> không cần lưu
+
 
 async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /batdau - host bấm để bắt đầu game"""
@@ -708,6 +829,9 @@ async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYP
 
     session.started = True
 
+    # Lưu trạng thái bắt đầu game
+    session_manager.persist_session(chat_id)
+
     game_name = getattr(session, "game_name", None)
     if game_name:
         text = (
@@ -731,7 +855,7 @@ async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYP
 async def lastresult_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /lastresult - hiển thị kết quả game gần nhất trong chat"""
     chat_id = update.effective_chat.id
-    data = last_results.get(chat_id)
+    data = get_last_result_for_chat(chat_id)
 
     if not data:
         await update.message.reply_text(
@@ -783,7 +907,7 @@ async def lastresult_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /leaderboard - bảng xếp hạng trúng thưởng / tham gia"""
     chat_id = update.effective_chat.id
-    chat_stats = stats.get(chat_id)
+    chat_stats = get_chat_stats(chat_id)
 
     if not chat_stats:
         await update.message.reply_text(
@@ -877,8 +1001,8 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     game_name = getattr(session, "game_name", None)
 
-    # Cập nhật thống kê cho leaderboard
-    chat_stats = stats.setdefault(chat_id, {"wins": {}, "participations": {}})
+    # Cập nhật thống kê cho leaderboard (trong cache & DB)
+    chat_stats = get_chat_stats(chat_id)
 
     # 1) Số lần tham gia dựa trên participants
     participations = chat_stats["participations"]
@@ -914,7 +1038,7 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     # Lưu kết quả game gần nhất cho chat này
     host_name = user.full_name or (user.username or str(user_id))
-    last_results[chat_id] = {
+    result_data = {
         "game_name": game_name,
         "host_id": user_id,
         "host_name": host_name,
@@ -922,6 +1046,11 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         "winners": list(getattr(session, "winners", [])),
         "ended_at": datetime.now().isoformat(timespec="seconds"),
     }
+    last_results[chat_id] = result_data
+
+    # Lưu stats + last_result xuống DB
+    save_stats(chat_id, chat_stats)
+    save_last_result(chat_id, result_data)
 
     session_manager.delete_session(chat_id)
 
@@ -1067,6 +1196,9 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             }
         )
 
+        # Lưu lại session với vé trúng thưởng mới
+        session_manager.persist_session(chat_id)
+
         lines.append(
             f"\n🏆 *Chúc mừng* {escape_markdown(display_name)} *\\!* \n"
             f"Vé của bạn là *TRÚNG THƯỞNG* với ít nhất *5 số* đã quay:\n"
@@ -1134,6 +1266,9 @@ async def xoakinh_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     numbers = removed.get("numbers") or []
     numbers_str = ", ".join(f"`{n}`" for n in numbers)
+
+    # Lưu lại sau khi xoá vé trúng
+    session_manager.persist_session(chat_id)
 
     await update.message.reply_text(
         "✅ Đã xoá vé trúng thưởng gần nhất của bạn khỏi danh sách kết quả.\n\n"
@@ -1213,6 +1348,8 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             header + "\n" + "\n".join(lines),
             parse_mode="Markdown",
         )
+
+        # Chỉ liệt kê, không thay đổi session -> không cần lưu
         return
 
     # Có tham số: cố gắng lấy / đổi vé
@@ -1245,6 +1382,9 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tickets[code] = user_id
     user_tickets[user_id] = code
 
+    # Lưu session sau khi đổi vé
+    session_manager.persist_session(chat_id)
+
     await update.message.reply_text(
         f"✅ Bạn đã chọn vé: `{code}`\n\n"
         "Nếu bạn gọi `/layve <mã_vé_khác>` trước khi game bắt đầu, vé cũ sẽ được trả lại và thay bằng vé mới.",
@@ -1275,6 +1415,7 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("menu", menu_command))
 
     # Chỉ dùng các lệnh tiếng Việt thân thuộc cho game
+    application.add_handler(CommandHandler("vongmoi", vongmoi_command))
     application.add_handler(CommandHandler("moi", newsession_command))
     application.add_handler(CommandHandler("phamvi", setrange_command))
     application.add_handler(CommandHandler("batdau", startsession_command))
