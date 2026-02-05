@@ -168,8 +168,8 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not context.args:
         await update.message.reply_text(
             "❌ *Sai cú pháp\\!*\n\n"
-            "Sử dụng: `/newsession <tên_game>`\n"
-            "Ví dụ: `/newsession Loto tối nay`",
+            "Sử dụng: `/moi <tên_game>`\n"
+            "Ví dụ: `/moi Loto tối nay`",
             parse_mode='Markdown'
         )
         return
@@ -198,12 +198,12 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         session.add_participant(user_id=user_id, name=user.full_name or (user.username or str(user_id)))
 
         await update.message.reply_text(
-            f"✅ *Đã tạo session mới\\!*\n\n"
+            f"✅ *Đã tạo game mới\\!*\n\n"
             f"🕹️ Tên game: `{escape_markdown(game_name)}`\n"
             f"📊 Khoảng số: `1 -> {MAX_NUMBERS}`\n"
             f"📊 Tổng số: `{session.get_total_numbers()}`\n"
             f"⚙️ Loại bỏ sau khi quay: `{'Có' if session.remove_after_spin else 'Không'}`\n\n"
-            f"Dùng `/spin` để quay và `/check <danh_sách_số>` để kiểm tra vé\\.",
+            f"Host gửi `/batdau` để bắt đầu game, sau đó dùng `/quay` để quay và `/kinh <danh_sách_số>` để kiểm tra vé\\.",
             parse_mode='Markdown'
         )
     except ValueError as e:
@@ -211,7 +211,7 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /setrange <x> <y>"""
+    """Handler cho lệnh /phamvi <x> <y>"""
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
@@ -228,8 +228,8 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args or len(context.args) < 2:
         await update.message.reply_text(
             "❌ *Sai cú pháp\\!*\n\n"
-            "Sử dụng: `/setrange <x> <y>`\n"
-            "Ví dụ: `/setrange 1 100`",
+            "Sử dụng: `/phamvi <x> <y>`\n"
+            "Ví dụ: `/phamvi 1 100`",
             parse_mode='Markdown'
         )
         return
@@ -268,11 +268,11 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         session.add_participant(user_id=user_id, name=user.full_name or (user.username or str(user_id)))
         
         await update.message.reply_text(
-            f"✅ *Đã tạo session\\!*\n\n"
+            f"✅ *Đã tạo game mới\\!*\n\n"
             f"📊 Khoảng số: `{start_num} -> {end_num}`\n"
             f"📊 Tổng số: `{session.get_total_numbers()}`\n"
             f"⚙️ Loại bỏ sau khi quay: `{'Có' if session.remove_after_spin else 'Không'}`\n\n"
-            f"Sử dụng `/spin` để quay wheel\\!",
+            f"Host gửi `/batdau` để bắt đầu game, sau đó dùng `/quay` để quay và `/kinh <danh_sách_số>` để kiểm tra vé\\.",
             parse_mode='Markdown'
         )
     except ValueError as e:
@@ -280,7 +280,7 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /spin"""
+    """Handler cho lệnh /quay"""
     chat_id = update.effective_chat.id
     session = session_manager.get_session(chat_id)
     
@@ -297,8 +297,8 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not session:
         await update.message.reply_text(
-            "❌ *Chưa có session\\!*\n\n"
-            "Sử dụng `/setrange <x> <y>` để tạo session trước\\.",
+            "❌ *Chưa có game nào trong chat\\!*\n\n"
+            "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước nhé\\.",
             parse_mode='Markdown'
         )
         return
@@ -330,14 +330,14 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def toggle_remove_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /toggle_remove"""
+    """Handler cho lệnh /toggle_remove - tạm thời vẫn dùng tên kỹ thuật để admin cấu hình"""
     chat_id = update.effective_chat.id
     session = session_manager.get_session(chat_id)
     
     if not session:
         await update.message.reply_text(
-            "❌ *Chưa có session\\!*\n\n"
-            "Sử dụng `/setrange <x> <y>` để tạo session trước\\.",
+            "❌ *Chưa có game nào trong chat\\!*\n\n"
+            "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước nhé\\.",
             parse_mode='Markdown'
         )
         return
@@ -355,14 +355,14 @@ async def toggle_remove_command(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /reset"""
+    """Handler cho lệnh /datlai"""
     chat_id = update.effective_chat.id
     session = session_manager.get_session(chat_id)
     
     if not session:
         await update.message.reply_text(
-            "❌ *Chưa có session\\!*\n\n"
-            "Sử dụng `/setrange <x> <y>` để tạo session trước\\.",
+            "❌ *Chưa có game nào trong chat\\!*\n\n"
+            "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước nhé\\.",
             parse_mode='Markdown'
         )
         return
@@ -377,14 +377,14 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /status"""
+    """Handler cho lệnh /trangthai"""
     chat_id = update.effective_chat.id
     session = session_manager.get_session(chat_id)
     
     if not session:
         await update.message.reply_text(
-            "❌ *Chưa có session\\!*\n\n"
-            "Sử dụng `/setrange <x> <y>` để tạo session trước\\.",
+            "❌ *Chưa có game nào trong chat\\!*\n\n"
+            "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước nhé\\.",
             parse_mode='Markdown'
         )
         return
@@ -409,14 +409,14 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /history - hiển thị toàn bộ lịch sử quay của game hiện tại"""
+    """Handler cho lệnh /lichsu - hiển thị toàn bộ lịch sử quay của game hiện tại"""
     chat_id = update.effective_chat.id
     session = session_manager.get_session(chat_id)
     
     if not session:
         await update.message.reply_text(
-            "❌ *Chưa có session\\!*\n\n"
-            "Sử dụng `/setrange <x> <y>` để tạo session trước\\.",
+            "❌ *Chưa có game nào trong chat\\!*\n\n"
+            "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước nhé\\.",
             parse_mode='Markdown'
         )
         return
@@ -442,7 +442,7 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /clear"""
+    """Handler cho lệnh /xoa"""
     chat_id = update.effective_chat.id
     
     if not session_manager.has_session(chat_id):
@@ -456,13 +456,13 @@ async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(
         "🗑️ *Đã xóa session\\!*\n\n"
-        "Sử dụng `/newsession <tên_game>` hoặc `/setrange <x> <y>` để tạo session mới\\.",
+        "Host có thể dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game mới\\.",
         parse_mode='Markdown'
     )
 
 
 async def join_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /join - cho phép người khác tham gia game hiện tại trong nhóm/chat"""
+    """Handler cho lệnh /thamgia - cho phép người khác tham gia game hiện tại trong nhóm/chat"""
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
@@ -471,7 +471,7 @@ async def join_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not session:
         await update.message.reply_text(
             "❌ *Chưa có game nào đang chạy trong chat này\\!*\n\n"
-            "Dùng `/newsession <tên_game>` để tạo game mới.",
+            "Host dùng `/moi <tên_game>` để tạo game mới.",
             parse_mode='Markdown'
         )
         return
@@ -535,7 +535,7 @@ async def out_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def players_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /players - hiển thị danh sách người tham gia game"""
+    """Handler cho lệnh /danhsach - hiển thị danh sách người tham gia game"""
     chat_id = update.effective_chat.id
     session = session_manager.get_session(chat_id)
 
@@ -592,7 +592,7 @@ async def players_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /startsession - host bấm để bắt đầu game"""
+    """Handler cho lệnh /batdau - host bấm để bắt đầu game"""
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
@@ -600,8 +600,8 @@ async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYP
 
     if not session:
         await update.message.reply_text(
-            "❌ *Chưa có session nào để bắt đầu\\!* \n\n"
-            "Dùng `/newsession <tên_game>` hoặc `/setrange <x> <y>` để tạo game trước.",
+            "❌ *Chưa có game nào để bắt đầu\\!* \n\n"
+            "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước.",
             parse_mode='Markdown'
         )
         return
@@ -760,7 +760,7 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /endsession
+    """Handler cho lệnh /ketthuc
     
     Chỉ người đã tạo session (/newsession hoặc /setrange) mới được phép kết thúc.
     """
@@ -771,7 +771,7 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if not session:
         await update.message.reply_text(
-            "ℹ️ Không có session nào đang hoạt động để kết thúc.",
+            "ℹ️ Hiện không có game nào đang chạy để kết thúc.",
             parse_mode='Markdown'
         )
         return
@@ -780,7 +780,7 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     owner_id = getattr(session, "owner_id", user_id)
     if owner_id != user_id:
         await update.message.reply_text(
-            "❌ Chỉ người tạo session mới được quyền kết thúc (/endsession).",
+            "❌ Chỉ *host* (người tạo game) mới được quyền kết thúc game với `/ketthuc`.",
             parse_mode='Markdown'
         )
         return
@@ -828,7 +828,7 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /check <danh_sách_số>
+    """Handler cho lệnh /kinh <danh_sách_số>
     
     Ví dụ: /check 1 2 3 10 20
             /check 1,5,10,15
@@ -851,8 +851,8 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not session:
         await update.message.reply_text(
-            "❌ *Chưa có session\\!*\n\n"
-            "Sử dụng `/newsession <tên_game>` hoặc `/setrange <x> <y>` để tạo session trước\\.",
+            "❌ *Chưa có game nào trong chat\\!*\n\n"
+            "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước nhé\\.",
             parse_mode='Markdown'
         )
         return
@@ -869,8 +869,8 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
             "❌ *Sai cú pháp\\!*\n\n"
-            "Sử dụng: `/check <danh_sách_số>`\n"
-            "Ví dụ: `/check 1 2 3 10 20` hoặc `/check 1,5,10,15`",
+            "Sử dụng: `/kinh <danh_sách_số>`\n"
+            "Ví dụ: `/kinh 1 5 10 20 30` hoặc `/kinh 1,5,10,20,30`",
             parse_mode='Markdown'
         )
         return
