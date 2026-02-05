@@ -157,7 +157,7 @@ def get_last_result_for_chat(chat_id: int) -> dict | None:
 
 
 async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /vongmoi <tên_vòng> - tạo vòng chơi mới trong chat."""
+    """Handler cho lệnh /vong_moi <tên_vòng> - tạo vòng chơi mới trong chat."""
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
@@ -165,8 +165,8 @@ async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
             "❌ *Sai cú pháp\\!*\n\n"
-            "Sử dụng: `/vongmoi <tên_vòng>`\n"
-            "Ví dụ: `/vongmoi Loto tối nay`",
+            "Sử dụng: `/vong_moi <tên_vòng>`\n"
+            "Ví dụ: `/vong_moi Loto tối nay`",
             parse_mode="Markdown",
         )
         return
@@ -190,8 +190,8 @@ async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"✅ *Đã tạo vòng chơi mới\\!* \n\n"
         f"🔄 Tên vòng: `{escape_markdown(round_name)}`\n\n"
         "Giờ bạn có thể dùng:\n"
-        "• `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo các game trong vòng này.\n"
-        "• `/ketthuc` để kết thúc từng game.",
+        "• `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo các game trong vòng này.\n"
+        "• `/ket_thuc` để kết thúc từng game.",
         parse_mode="Markdown",
     )
 
@@ -223,7 +223,7 @@ async def ensure_active_session(update: Update, chat_id: int, session) -> bool:
         session_manager.delete_session(chat_id)
         await update.message.reply_text(
             "⏱️ *Game đã hết hạn do quá lâu không quay số\\!* \n\n"
-            "Host hãy dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game mới nhé.",
+            "Host hãy dùng `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo game mới nhé.",
             parse_mode="Markdown",
         )
         return False
@@ -250,23 +250,23 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /menu - hiển thị menu phím bấm nhanh"""
     keyboard = [
         [
-            KeyboardButton("/newsession"),
-            KeyboardButton("/join"),
-            KeyboardButton("/players"),
+            KeyboardButton("/moi"),
+            KeyboardButton("/tham_gia"),
+            KeyboardButton("/danh_sach"),
         ],
         [
-            KeyboardButton("/spin"),
-            KeyboardButton("/check"),
-            KeyboardButton("/status"),
+            KeyboardButton("/quay"),
+            KeyboardButton("/kinh"),
+            KeyboardButton("/trang_thai"),
         ],
         [
-            KeyboardButton("/history"),
-            KeyboardButton("/reset"),
+            KeyboardButton("/lich_su"),
+            KeyboardButton("/dat_lai"),
         ],
         [
-            KeyboardButton("/endsession"),
-            KeyboardButton("/clear"),
-            KeyboardButton("/help"),
+            KeyboardButton("/ket_thuc"),
+            KeyboardButton("/tra_ve"),
+            KeyboardButton("/xoa"),
         ],
     ]
 
@@ -279,30 +279,30 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         "📋 *Menu thao tác nhanh*\n\n"
         "🕹️ *Vòng chơi & game*\n"
-        "• `/vongmoi <tên_vòng>` \\- tạo vòng chơi mới trong chat\n"
-        "• `/newsession <tên_game>` \\- tạo game mới trong vòng / chat\n"
-        "• `/startsession` \\- host bấm để *bắt đầu* game\n"
-        "• `/join` \\- tham gia game hiện tại\n"
-        "• `/players` \\- xem danh sách người chơi\n"
-        "• `/out` \\- rời khỏi game (người thường)\n\n"
+        "• `/vong_moi <tên_vòng>` \\- tạo vòng chơi mới trong chat\n"
+        "• `/moi <tên_game>` \\- tạo game mới trong vòng / chat\n"
+        "• `/pham_vi <x> <y>` \\- tạo game với khoảng số tuỳ chỉnh\n"
+        "• `/bat_dau` \\- host bấm để *bắt đầu* game\n"
+        "• `/tham_gia` \\- tham gia game hiện tại\n"
+        "• `/danh_sach` \\- xem danh sách người chơi\n"
+        "• `/tra_ve` \\- rời khỏi game (người thường)\n\n"
         "🎲 *Quay số & trạng thái*\n"
-        "• `/spin` \\- quay số\n"
-        "• `/check <dãy_số>` \\- kiểm tra vé, số đã/ chưa quay\n"
-        "• `/status` \\- xem trạng thái hiện tại\n"
-        "• `/history` \\- lịch sử quay gần đây\n\n"
+        "• `/quay` \\- quay số\n"
+        "• `/kinh <dãy_số>` \\- kiểm tra vé, số đã/ chưa quay\n"
+        "• `/trang_thai` \\- xem trạng thái hiện tại\n"
+        "• `/lich_su` \\- lịch sử quay gần đây\n\n"
         "⚙️ *Quản lý phiên chơi*\n"
-        "• `/reset` \\- reset lại dãy số\n"
-        "• `/endsession` \\- kết thúc game (chỉ host)\n"
-        "• `/clear` \\- xoá session trong chat\n\n"
+        "• `/dat_lai` \\- reset lại dãy số\n"
+        "• `/ket_thuc` \\- kết thúc game (chỉ host)\n"
+        "• `/xoa` \\- xoá session trong chat\n\n"
         "📊 *Thống kê & kết quả*\n"
-        "• `/lastresult` \\- xem kết quả game gần nhất trong chat\n"
-        "• `/leaderboard` \\- bảng xếp hạng trúng thưởng (mặc định)\n"
-        "• `/leaderboard join` \\- bảng xếp hạng số game tham gia\n\n"
+        "• `/ket_qua` \\- xem kết quả game gần nhất trong chat\n"
+        "• `/xep_hang` \\- bảng xếp hạng trúng thưởng (mặc định)\n"
         "ℹ️ *Khác*\n"
-        "• `/help` \\- hướng dẫn chi tiết\n\n"
+        "• `/tro_giup` \\- hướng dẫn chi tiết\n\n"
         "_Chọn nhanh nút bên dưới rồi bổ sung tham số nếu cần, ví dụ:_\n"
-        "• `/newsession Loto tối nay`\n"
-        "• `/check 1 5 10 20`"
+        "• `/moi Loto tối nay`\n"
+        "• `/kinh 1 5 10 20`"
     )
 
     await update.message.reply_text(
@@ -313,7 +313,7 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /newsession <tên_game>
+    """Handler cho lệnh /moi <tên_game>
     
     Tạo một session mới với tên game, sử dụng khoảng số mặc định 1 -> MAX_NUMBERS.
     """
@@ -325,7 +325,7 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if session_manager.has_session(chat_id):
         await update.message.reply_text(
             "⚠️ Chat này đang có game hoạt động\\. "
-            "Vui lòng dùng `/ketthuc` để kết thúc hoặc `/xoa` để xoá trước khi tạo game mới\\.",
+            "Vui lòng dùng `/ket_thuc` để kết thúc hoặc `/xoa` để xoá trước khi tạo game mới\\.",
             parse_mode='Markdown'
         )
         return
@@ -377,7 +377,9 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
             f"📊 Khoảng số: `1 -> {MAX_NUMBERS}`\n"
             f"📊 Tổng số: `{session.get_total_numbers()}`\n"
             f"⚙️ Loại bỏ sau khi quay: `{'Có' if session.remove_after_spin else 'Không'}`\n\n"
-            f"Host gửi `/batdau` để bắt đầu game, sau đó dùng `/quay` để quay và `/kinh <danh_sách_số>` để kiểm tra vé\\.",
+            f"Người chơi dùng /lay_ve <mã_vé> để chọn vé và /tra_ve để rời game\\."
+            f"Host gửi `/bat_dau` để bắt đầu game \n" 
+            f"sau đó dùng `/quay` để quay và `/kinh <danh_sách_số>` để kiểm tra vé\\.",
             parse_mode='Markdown'
         )
     except ValueError as e:
@@ -385,7 +387,7 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /phamvi <x> <y>"""
+    """Handler cho lệnh /pham_vi <x> <y>"""
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
@@ -394,7 +396,7 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if session_manager.has_session(chat_id):
         await update.message.reply_text(
             "⚠️ Chat này đang có game hoạt động\\. "
-            "Vui lòng dùng `/ketthuc` để kết thúc hoặc `/xoa` để xoá trước khi tạo game mới\\.",
+            "Vui lòng dùng `/ket_thuc` để kết thúc hoặc `/xoa` để xoá trước khi tạo game mới\\.",
             parse_mode='Markdown'
         )
         return
@@ -402,8 +404,8 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args or len(context.args) < 2:
         await update.message.reply_text(
             "❌ *Sai cú pháp\\!*\n\n"
-            "Sử dụng: `/phamvi <x> <y>`\n"
-            "Ví dụ: `/phamvi 1 100`",
+            "Sử dụng: `/pham_vi <x> <y>`\n"
+            "Ví dụ: `/pham_vi 1 100`",
             parse_mode='Markdown'
         )
         return
@@ -455,7 +457,7 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📊 Khoảng số: `{start_num} -> {end_num}`\n"
             f"📊 Tổng số: `{session.get_total_numbers()}`\n"
             f"⚙️ Loại bỏ sau khi quay: `{'Có' if session.remove_after_spin else 'Không'}`\n\n"
-            f"Host gửi `/batdau` để bắt đầu game, sau đó dùng `/quay` để quay và `/kinh <danh_sách_số>` để kiểm tra vé\\.",
+            f"Host gửi `/bat_dau` để bắt đầu game, sau đó dùng `/quay` để quay và `/kinh <danh_sách_số>` để kiểm tra vé\\.",
             parse_mode='Markdown'
         )
     except ValueError as e:
@@ -481,7 +483,7 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not session:
         await update.message.reply_text(
             "❌ *Chưa có game nào trong chat\\!*\n\n"
-            "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước nhé\\.",
+            "Host dùng `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo game trước nhé\\.",
             parse_mode='Markdown'
         )
         return
@@ -490,11 +492,11 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_active_session(update, chat_id, session):
         return
 
-    # Yêu cầu host đã /startsession trước khi quay
+    # Yêu cầu host đã /bat_dau trước khi quay
     if not getattr(session, "started", False):
         await update.message.reply_text(
             "⏱️ *Game chưa bắt đầu\\!* \n\n"
-            "Host cần dùng lệnh `/startsession` để bắt đầu game trước khi quay số.",
+            "Host cần dùng lệnh `/bat_dau` để bắt đầu game trước khi quay số.",
             parse_mode='Markdown'
         )
         return
@@ -527,7 +529,7 @@ async def toggle_remove_command(update: Update, context: ContextTypes.DEFAULT_TY
     if not session:
         await update.message.reply_text(
             "❌ *Chưa có game nào trong chat\\!*\n\n"
-            "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước nhé\\.",
+            "Host dùng `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo game trước nhé\\.",
             parse_mode='Markdown'
         )
         return
@@ -548,14 +550,14 @@ async def toggle_remove_command(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /datlai"""
+    """Handler cho lệnh /dat_lai"""
     chat_id = update.effective_chat.id
     session = session_manager.get_session(chat_id)
     
     if not session:
         await update.message.reply_text(
             "❌ *Chưa có game nào trong chat\\!*\n\n"
-            "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước nhé\\.",
+            "Host dùng `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo game trước nhé\\.",
             parse_mode='Markdown'
         )
         return
@@ -573,14 +575,14 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /trangthai"""
+    """Handler cho lệnh /trang_thai"""
     chat_id = update.effective_chat.id
     session = session_manager.get_session(chat_id)
     
     if not session:
         await update.message.reply_text(
             "❌ *Chưa có game nào trong chat\\!*\n\n"
-            "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước nhé\\.",
+            "Host dùng `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo game trước nhé\\.",
             parse_mode='Markdown'
         )
         return
@@ -609,14 +611,14 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /lichsu - hiển thị toàn bộ lịch sử quay của game hiện tại"""
+    """Handler cho lệnh /lich_su - hiển thị toàn bộ lịch sử quay của game hiện tại"""
     chat_id = update.effective_chat.id
     session = session_manager.get_session(chat_id)
     
     if not session:
         await update.message.reply_text(
             "❌ *Chưa có game nào trong chat\\!*\n\n"
-            "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước nhé\\.",
+            "Host dùng `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo game trước nhé\\.",
             parse_mode='Markdown'
         )
         return
@@ -660,13 +662,13 @@ async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(
         "🗑️ *Đã xóa session\\!*\n\n"
-        "Host có thể dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game mới\\.",
+        "Host có thể dùng `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo game mới\\.",
         parse_mode='Markdown'
     )
 
 
 async def join_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /thamgia - cho phép người khác tham gia game hiện tại trong nhóm/chat"""
+    """Handler cho lệnh /tham_gia - cho phép người khác tham gia game hiện tại trong nhóm/chat"""
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
@@ -696,7 +698,7 @@ async def join_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def out_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /out - cho phép người chơi rời khỏi game"""
+    """Handler cho lệnh /tra_ve - cho phép người chơi rời khỏi game"""
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
@@ -712,15 +714,15 @@ async def out_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Nếu game đã start thì không cho phép out nữa
     if getattr(session, "started", False):
         await update.message.reply_text(
-            "⏱️ Game đã bắt đầu, không thể dùng `/out` để rời game nữa.",
+            "⏱️ Game đã bắt đầu, không thể dùng `/tra_ve` để rời game nữa.",
             parse_mode='Markdown'
         )
         return
 
-    # Host không được out, phải dùng /endsession
+    # Host không được out, phải dùng /ket_thuc
     if getattr(session, "owner_id", None) == user_id:
         await update.message.reply_text(
-            "❌ Bạn là chủ phòng\\. Dùng `/endsession` để kết thúc game thay vì `/out`.",
+            "❌ Bạn là chủ phòng\\. Dùng `/ket_thuc` để kết thúc game thay vì `/tra_ve`.",
             parse_mode='Markdown'
         )
         return
@@ -739,7 +741,7 @@ async def out_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def players_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /danhsach - hiển thị danh sách người tham gia game"""
+    """Handler cho lệnh /danh_sach - hiển thị danh sách người tham gia game"""
     chat_id = update.effective_chat.id
     session = session_manager.get_session(chat_id)
 
@@ -798,7 +800,7 @@ async def players_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /batdau - host bấm để bắt đầu game"""
+    """Handler cho lệnh /bat_dau - host bấm để bắt đầu game"""
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
@@ -807,7 +809,7 @@ async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYP
     if not session:
         await update.message.reply_text(
             "❌ *Chưa có game nào để bắt đầu\\!* \n\n"
-            "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước.",
+            "Host dùng `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo game trước.",
             parse_mode='Markdown'
         )
         return
@@ -815,7 +817,7 @@ async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYP
     owner_id = getattr(session, "owner_id", None)
     if owner_id is not None and owner_id != user_id:
         await update.message.reply_text(
-            "❌ Chỉ *host* (người tạo game) mới được quyền bắt đầu game bằng `/startsession`.",
+            "❌ Chỉ *host* (người tạo game) mới được quyền bắt đầu game bằng `/bat_dau`.",
             parse_mode='Markdown'
         )
         return
@@ -838,22 +840,22 @@ async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYP
             f"🚀 *Game đã bắt đầu\\!* \n\n"
             f"🕹️ `{escape_markdown(game_name)}`\n\n"
             "Mọi người có thể dùng:\n"
-            "• `/spin` để quay số\n"
-            "• `/check <dãy_số>` để kiểm tra vé"
+            "• `/quay` để quay số\n"
+            "• `/kinh <dãy_số>` để kiểm tra vé"
         )
     else:
         text = (
             "🚀 *Game đã bắt đầu\\!* \n\n"
             "Mọi người có thể dùng:\n"
-            "• `/spin` để quay số\n"
-            "• `/check <dãy_số>` để kiểm tra vé"
+            "• `/quay` để quay số\n"
+            "• `/kinh <dãy_số>` để kiểm tra vé"
         )
 
     await update.message.reply_text(text, parse_mode='Markdown')
 
 
 async def lastresult_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /lastresult - hiển thị kết quả game gần nhất trong chat"""
+    """Handler cho lệnh /ket_qua - hiển thị kết quả game gần nhất trong chat"""
     chat_id = update.effective_chat.id
     data = get_last_result_for_chat(chat_id)
 
@@ -905,7 +907,7 @@ async def lastresult_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /leaderboard - bảng xếp hạng trúng thưởng / tham gia"""
+    """Handler cho lệnh /xep_hang - bảng xếp hạng trúng thưởng / tham gia"""
     chat_id = update.effective_chat.id
     chat_stats = get_chat_stats(chat_id)
 
@@ -964,7 +966,7 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         lines.append(f"{idx}. {name} - `{count_str}` lần")
 
     mode_hint = (
-        "\n\nℹ️ Dùng `/leaderboard wins` hoặc `/leaderboard join` để xem bảng xếp hạng tương ứng."
+        "\n\nℹ️ Dùng `/xep_hang wins` hoặc `/xep_hang join` để xem bảng xếp hạng tương ứng."
     )
 
     await update.message.reply_text(
@@ -974,9 +976,9 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /ketthuc
+    """Handler cho lệnh /ket_thuc
     
-    Chỉ người đã tạo session (/newsession hoặc /setrange) mới được phép kết thúc.
+    Chỉ người đã tạo session (/moi hoặc /pham_vi) mới được phép kết thúc.
     """
     chat_id = update.effective_chat.id
     user = update.effective_user
@@ -994,7 +996,7 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     owner_id = getattr(session, "owner_id", user_id)
     if owner_id != user_id:
         await update.message.reply_text(
-            "❌ Chỉ *host* (người tạo game) mới được quyền kết thúc game với `/ketthuc`.",
+            "❌ Chỉ *host* (người tạo game) mới được quyền kết thúc game với `/ket_thuc`.",
             parse_mode='Markdown'
         )
         return
@@ -1056,13 +1058,14 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if game_name:
         msg = (
-            f"🛑 *Đã kết thúc session game* `{escape_markdown(game_name)}`\\.\n\n"
-            "Bạn có thể tạo game mới bằng `/newsession <tên_game>`."
+            f"🛑 *Đã kết thúc ván chơi* `{escape_markdown(game_name)}`\\.\n\n"
+            "Bạn có thể tạo ván chơi mới bằng `/moi <tên_game>`"
+
         )
     else:
         msg = (
-            "🛑 *Đã kết thúc session hiện tại\\!* \n\n"
-            "Bạn có thể tạo game mới bằng `/newsession <tên_game>`."
+            "🛑 *Đã kết thúc vòng chơi hiện tại\\!* \n\n"
+            "Bạn có thể tạo vòng mới bằng `/vong_moi <tên_vòng>`."
         )
 
     await update.message.reply_text(msg, parse_mode='Markdown')
@@ -1071,8 +1074,8 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /kinh <danh_sách_số>
     
-    Ví dụ: /check 1 2 3 10 20
-            /check 1,5,10,15
+    Ví dụ: /kinh 1 2 3 10 20
+            /kinh 1,5,10,15
     Bot sẽ báo số nào đã quay, số nào chưa quay hoặc không hợp lệ.
     """
     chat_id = update.effective_chat.id
@@ -1085,7 +1088,7 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     last_time = last_check_time.get(key)
     if last_time and (now - last_time).total_seconds() < COOLDOWN_CHECK_SECONDS:
         await update.message.reply_text(
-            "⏱️ Bạn vừa /check xong, đợi vài giây rồi thử lại nhé.",
+            "⏱️ Bạn vừa /kinh xong, đợi vài giây rồi thử lại nhé.",
             parse_mode='Markdown'
         )
         return
@@ -1093,7 +1096,7 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not session:
         await update.message.reply_text(
             "❌ *Chưa có game nào trong chat\\!*\n\n"
-            "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước nhé\\.",
+            "Host dùng `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo game trước nhé\\.",
             parse_mode='Markdown'
         )
         return
@@ -1102,11 +1105,11 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_active_session(update, chat_id, session):
         return
 
-    # Yêu cầu game đã được host /startsession
+    # Yêu cầu game đã được host /bat_dau
     if not getattr(session, "started", False):
         await update.message.reply_text(
             "⏱️ *Game chưa bắt đầu\\!* \n\n"
-            "Host cần dùng lệnh `/startsession` để bắt đầu game trước khi kiểm tra vé.",
+            "Host cần dùng lệnh `/bat_dau` để bắt đầu game trước khi kiểm tra vé.",
             parse_mode='Markdown'
         )
         return
@@ -1219,7 +1222,7 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def xoakinh_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /xoakinh - xoá vé trúng thưởng gần nhất của chính mình trong game hiện tại"""
+    """Handler cho lệnh /xoa_kinh - xoá vé trúng thưởng gần nhất của chính mình trong game hiện tại"""
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
@@ -1278,7 +1281,7 @@ async def xoakinh_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /layve - chọn / xem vé (mã màu) trước khi game bắt đầu"""
+    """Handler cho lệnh /lay_ve - chọn / xem vé (mã màu) trước khi game bắt đầu"""
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
@@ -1287,7 +1290,7 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not session:
         await update.message.reply_text(
             "❌ *Chưa có game nào trong chat\\!*\n\n"
-            "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước nhé\\.",
+            "Host dùng `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo game trước nhé\\.",
             parse_mode="Markdown",
         )
         return
@@ -1343,7 +1346,7 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             header += "🧾 Bạn chưa chọn vé nào\\.\n\n"
 
-        header += "Dùng `/layve <mã_vé>` để chọn hoặc đổi vé\\. Ví dụ: `/layve tim1`"
+        header += "Dùng `/lay_ve <mã_vé>` để chọn hoặc đổi vé\\. Ví dụ: `/lay_ve tim1`"
         await update.message.reply_text(
             header + "\n" + "\n".join(lines),
             parse_mode="Markdown",
@@ -1387,7 +1390,7 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"✅ Bạn đã chọn vé: `{code}`\n\n"
-        "Nếu bạn gọi `/layve <mã_vé_khác>` trước khi game bắt đầu, vé cũ sẽ được trả lại và thay bằng vé mới.",
+        "Nếu bạn gọi `/lay_ve <mã_vé_khác>` trước khi game bắt đầu, vé cũ sẽ được trả lại và thay bằng vé mới.",
         parse_mode="Markdown",
     )
 
@@ -1415,23 +1418,24 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("menu", menu_command))
 
     # Chỉ dùng các lệnh tiếng Việt thân thuộc cho game
-    application.add_handler(CommandHandler("vongmoi", vongmoi_command))
+    application.add_handler(CommandHandler("vong_moi", vongmoi_command))
     application.add_handler(CommandHandler("moi", newsession_command))
-    application.add_handler(CommandHandler("phamvi", setrange_command))
-    application.add_handler(CommandHandler("batdau", startsession_command))
-    application.add_handler(CommandHandler("ketthuc", endsession_command))
-    application.add_handler(CommandHandler("thamgia", join_command))
-    application.add_handler(CommandHandler("danhsach", players_command))
-    application.add_handler(CommandHandler("layve", layve_command))
+    application.add_handler(CommandHandler("pham_vi", setrange_command))
+    application.add_handler(CommandHandler("bat_dau", startsession_command))
+    application.add_handler(CommandHandler("ket_thuc", endsession_command))
+    application.add_handler(CommandHandler("tham_gia", join_command))
+    application.add_handler(CommandHandler("danh_sach", players_command))
+    application.add_handler(CommandHandler("lay_ve", layve_command))
+    application.add_handler(CommandHandler("tra_ve", out_command))
     application.add_handler(CommandHandler("quay", spin_command))
     application.add_handler(CommandHandler("kinh", check_command))
-    application.add_handler(CommandHandler("xoakinh", xoakinh_command))
-    application.add_handler(CommandHandler("lichsu", history_command))
-    application.add_handler(CommandHandler("trangthai", status_command))
-    application.add_handler(CommandHandler("datlai", reset_command))
+    application.add_handler(CommandHandler("xoa_kinh", xoakinh_command))
+    application.add_handler(CommandHandler("lich_su", history_command))
+    application.add_handler(CommandHandler("trang_thai", status_command))
+    application.add_handler(CommandHandler("dat_lai", reset_command))
     application.add_handler(CommandHandler("xoa", clear_command))
-    application.add_handler(CommandHandler("ketqua", lastresult_command))
-    application.add_handler(CommandHandler("xephang", leaderboard_command))
-    application.add_handler(CommandHandler("trogiup", help_command))
+    application.add_handler(CommandHandler("ket_qua", lastresult_command))
+    application.add_handler(CommandHandler("xep_hang", leaderboard_command))
+    application.add_handler(CommandHandler("tro_giup", help_command))
     
     return application
