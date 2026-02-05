@@ -1,0 +1,19 @@
+# Core dependencies
+python-telegram-bot>=20.0
+python-dotenv>=1.0.0
+
+# Nếu muốn làm Discord bot:
+# discord.py>=2.0
+
+# Nếu muốn làm Web app:
+# fastapi>=0.100.0
+# uvicorn>=0.23.0
+# pydantic>=2.0.0
+
+# Database (optional):
+# sqlalchemy>=2.0.0
+# aiosqlite>=0.19.0  # Cho SQLite async
+
+# Testing:
+# pytest>=7.4.0
+# pytest-asyncio>=0.21.0
