@@ -1,8 +1,8 @@
-"""
-Telegram bot handlers và commands
-"""
-import logging
-from telegram import Update
+""" 
+Telegram bot handlers và commands 
+""" 
+import logging 
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton 
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -66,6 +66,67 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /help"""
     await update.message.reply_text(
         HELP_MESSAGE
+    )
+
+
+async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /menu - hiển thị menu phím bấm nhanh"""
+    keyboard = [
+        [
+            KeyboardButton("/newsession"),
+            KeyboardButton("/join"),
+            KeyboardButton("/players"),
+        ],
+        [
+            KeyboardButton("/spin"),
+            KeyboardButton("/check"),
+            KeyboardButton("/status"),
+        ],
+        [
+            KeyboardButton("/history"),
+            KeyboardButton("/reset"),
+        ],
+        [
+            KeyboardButton("/endsession"),
+            KeyboardButton("/clear"),
+            KeyboardButton("/help"),
+        ],
+    ]
+
+    reply_markup = ReplyKeyboardMarkup(
+        keyboard,
+        resize_keyboard=True,
+        one_time_keyboard=False,
+    )
+
+    text = (
+        "📋 *Menu thao tác nhanh*\n\n"
+        "🕹️ *Game & người chơi*\n"
+        "• `/newsession <tên_game>` \\- tạo game mới trong chat\n"
+        "• `/startsession` \\- host bấm để *bắt đầu* game\n"
+        "• `/join` \\- tham gia game hiện tại\n"
+        "• `/players` \\- xem danh sách người chơi\n"
+        "• `/out` \\- rời khỏi game (người thường)\n\n"
+        "🎲 *Quay số & trạng thái*\n"
+        "• `/spin` \\- quay số\n"
+        "• `/check <dãy_số>` \\- kiểm tra vé, số đã/ chưa quay\n"
+        "• `/status` \\- xem trạng thái hiện tại\n"
+        "• `/history` \\- lịch sử quay gần đây\n\n"
+        "⚙️ *Quản lý phiên chơi*\n"
+        "• `/reset` \\- reset lại dãy số\n"
+        "• `/endsession` \\- kết thúc game (chỉ host)\n"
+        "• `/clear` \\- xoá session trong chat\n\n"
+        "ℹ️ *Khác*\n"
+        "• `/help` \\- hướng dẫn chi tiết\n\n"
+        "_Chọn nhanh nút bên dưới rồi bổ sung tham số nếu cần, ví dụ:_\n"
+        "• `/newsession Loto tối nay`\n"
+        "• `/check 1 5 10 20`"
+    )
+
+    await update.message.reply_text(
+        text,
+        parse_mode="Markdown",
+        reply_markup=reply_markup,
     )
 
 
@@ -192,6 +253,15 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "❌ *Chưa có session\\!*\n\n"
             "Sử dụng `/setrange <x> <y>` để tạo session trước\\.",
+            parse_mode='Markdown'
+        )
+        return
+
+    # Yêu cầu host đã /startsession trước khi quay
+    if not getattr(session, "started", False):
+        await update.message.reply_text(
+            "⏱️ *Game chưa bắt đầu\\!* \n\n"
+            "Host cần dùng lệnh `/startsession` để bắt đầu game trước khi quay số.",
             parse_mode='Markdown'
         )
         return
@@ -387,6 +457,14 @@ async def out_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Nếu game đã start thì không cho phép out nữa
+    if getattr(session, "started", False):
+        await update.message.reply_text(
+            "⏱️ Game đã bắt đầu, không thể dùng `/out` để rời game nữa.",
+            parse_mode='Markdown'
+        )
+        return
+
     # Host không được out, phải dùng /endsession
     if getattr(session, "owner_id", None) == user_id:
         await update.message.reply_text(
@@ -465,6 +543,58 @@ async def players_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /startsession - host bấm để bắt đầu game"""
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+    user_id = user.id
+    session = session_manager.get_session(chat_id)
+
+    if not session:
+        await update.message.reply_text(
+            "❌ *Chưa có session nào để bắt đầu\\!* \n\n"
+            "Dùng `/newsession <tên_game>` hoặc `/setrange <x> <y>` để tạo game trước.",
+            parse_mode='Markdown'
+        )
+        return
+
+    owner_id = getattr(session, "owner_id", None)
+    if owner_id is not None and owner_id != user_id:
+        await update.message.reply_text(
+            "❌ Chỉ *host* (người tạo game) mới được quyền bắt đầu game bằng `/startsession`.",
+            parse_mode='Markdown'
+        )
+        return
+
+    if getattr(session, "started", False):
+        await update.message.reply_text(
+            "ℹ️ Game này đã được bắt đầu trước đó rồi.",
+            parse_mode='Markdown'
+        )
+        return
+
+    session.started = True
+
+    game_name = getattr(session, "game_name", None)
+    if game_name:
+        text = (
+            f"🚀 *Game đã bắt đầu\\!* \n\n"
+            f"🕹️ `{escape_markdown(game_name)}`\n\n"
+            "Mọi người có thể dùng:\n"
+            "• `/spin` để quay số\n"
+            "• `/check <dãy_số>` để kiểm tra vé"
+        )
+    else:
+        text = (
+            "🚀 *Game đã bắt đầu\\!* \n\n"
+            "Mọi người có thể dùng:\n"
+            "• `/spin` để quay số\n"
+            "• `/check <dãy_số>` để kiểm tra vé"
+        )
+
+    await update.message.reply_text(text, parse_mode='Markdown')
+
+
 async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /endsession
     
@@ -516,12 +646,22 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Bot sẽ báo số nào đã quay, số nào chưa quay hoặc không hợp lệ.
     """
     chat_id = update.effective_chat.id
+    user = update.effective_user
     session = session_manager.get_session(chat_id)
 
     if not session:
         await update.message.reply_text(
             "❌ *Chưa có session\\!*\n\n"
             "Sử dụng `/newsession <tên_game>` hoặc `/setrange <x> <y>` để tạo session trước\\.",
+            parse_mode='Markdown'
+        )
+        return
+
+    # Yêu cầu game đã được host /startsession
+    if not getattr(session, "started", False):
+        await update.message.reply_text(
+            "⏱️ *Game chưa bắt đầu\\!* \n\n"
+            "Host cần dùng lệnh `/startsession` để bắt đầu game trước khi kiểm tra vé.",
             parse_mode='Markdown'
         )
         return
@@ -574,6 +714,12 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Không còn trong available_numbers và cũng chưa thấy trong history -> xử lý như invalid
             invalid.append(str(number))
 
+    # Một vé được coi là trúng thưởng nếu:
+    # - Có ít nhất 4 số khớp (matched)
+    # - Không có số nào chưa quay (not_drawn)
+    # - Không có số không hợp lệ (invalid)
+    is_winner = len(set(matched)) >= 4 and not not_drawn and not invalid
+
     lines = []
 
     if matched:
@@ -587,6 +733,15 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if invalid:
         invalid_str = ", ".join(f"`{n}`" for n in sorted(set(invalid)))
         lines.append(f"⚠️ *Không hợp lệ / ngoài khoảng*: {invalid_str}")
+
+    if is_winner:
+        display_name = user.full_name or (user.username or str(user.id))
+        winner_numbers = ", ".join(f"`{n}`" for n in sorted(set(matched)))
+        lines.append(
+            f"\n🏆 *Chúc mừng* {escape_markdown(display_name)} *\\!* \n"
+            f"Vé của bạn là *TRÚNG THƯỞNG* với ít nhất *4 số* đã quay:\n"
+            f"{winner_numbers}"
+        )
 
     if not lines:
         lines.append("ℹ️ Không có kết quả để hiển thị. Kiểm tra lại cú pháp giúp nhé.")
@@ -605,7 +760,9 @@ def setup_bot(token: str) -> Application:
     # Register command handlers
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("menu", menu_command))
     application.add_handler(CommandHandler("newsession", newsession_command))
+    application.add_handler(CommandHandler("startsession", startsession_command))
     application.add_handler(CommandHandler("endsession", endsession_command))
     application.add_handler(CommandHandler("join", join_command))
     application.add_handler(CommandHandler("out", out_command))

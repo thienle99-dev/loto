@@ -52,6 +52,8 @@ class WheelSession:
         self.owner_id = owner_id
         # Danh sách người tham gia game: [{user_id, name}, ...]
         self.participants: list[dict] = []
+        # Trạng thái game đã bắt đầu hay chưa (host dùng /startsession)
+        self.started: bool = False
         
         # Tạo danh sách số ban đầu
         self.available_numbers = list(range(start_number, end_number + 1))
@@ -94,6 +96,7 @@ class WheelSession:
             'game_name': self.game_name,
             'owner_id': self.owner_id,
             'participants': self.participants,
+            'started': self.started,
         }
     
     @classmethod
@@ -115,6 +118,7 @@ class WheelSession:
         session.updated_at = datetime.fromisoformat(data.get('updated_at', datetime.now().isoformat()))
         session.history = data.get('history', [])
         session.participants = data.get('participants', [])
+        session.started = data.get('started', False)
         return session
 
     # Quản lý người tham gia
