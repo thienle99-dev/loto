@@ -481,9 +481,9 @@ async def join_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     game_name = getattr(session, "game_name", None)
     if is_new:
-        text = "✅ Bạn đã tham gia game hiện tại."
+        text = f"✅ *{escape_markdown(display_name)}* đã tham gia game hiện tại."
     else:
-        text = "ℹ️ Bạn đã ở trong danh sách người chơi."
+        text = f"ℹ️ *{escape_markdown(display_name)}* đã ở trong danh sách người chơi."
 
     if game_name:
         text = f"{text}\n\n🕹️ Game: `{escape_markdown(game_name)}`"
@@ -982,25 +982,26 @@ def setup_bot(token: str) -> Application:
     """Setup và trả về Application instance"""
     application = Application.builder().token(token).build()
     
-    # Register command handlers
+    # Register command handlers cơ bản
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("menu", menu_command))
-    application.add_handler(CommandHandler("newsession", newsession_command))
-    application.add_handler(CommandHandler("startsession", startsession_command))
-    application.add_handler(CommandHandler("endsession", endsession_command))
-    application.add_handler(CommandHandler("lastresult", lastresult_command))
-    application.add_handler(CommandHandler("leaderboard", leaderboard_command))
-    application.add_handler(CommandHandler("join", join_command))
-    application.add_handler(CommandHandler("out", out_command))
-    application.add_handler(CommandHandler("players", players_command))
-    application.add_handler(CommandHandler("check", check_command))
-    application.add_handler(CommandHandler("setrange", setrange_command))
-    application.add_handler(CommandHandler("spin", spin_command))
-    application.add_handler(CommandHandler("toggle_remove", toggle_remove_command))
-    application.add_handler(CommandHandler("reset", reset_command))
-    application.add_handler(CommandHandler("status", status_command))
-    application.add_handler(CommandHandler("history", history_command))
-    application.add_handler(CommandHandler("clear", clear_command))
+
+    # Chỉ dùng các lệnh tiếng Việt thân thuộc cho game
+    application.add_handler(CommandHandler("moi", newsession_command))
+    application.add_handler(CommandHandler("phamvi", setrange_command))
+    application.add_handler(CommandHandler("batdau", startsession_command))
+    application.add_handler(CommandHandler("ketthuc", endsession_command))
+    application.add_handler(CommandHandler("thamgia", join_command))
+    application.add_handler(CommandHandler("danhsach", players_command))
+    application.add_handler(CommandHandler("quay", spin_command))
+    application.add_handler(CommandHandler("kinh", check_command))
+    application.add_handler(CommandHandler("lichsu", history_command))
+    application.add_handler(CommandHandler("trangthai", status_command))
+    application.add_handler(CommandHandler("datlai", reset_command))
+    application.add_handler(CommandHandler("xoa", clear_command))
+    application.add_handler(CommandHandler("ketqua", lastresult_command))
+    application.add_handler(CommandHandler("xephang", leaderboard_command))
+    application.add_handler(CommandHandler("trogiup", help_command))
     
     return application
