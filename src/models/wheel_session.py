@@ -54,6 +54,9 @@ class WheelSession:
         self.participants: list[dict] = []
         # Trạng thái game đã bắt đầu hay chưa (host dùng /startsession)
         self.started: bool = False
+        # Danh sách người trúng thưởng trong game hiện tại
+        # [{'user_id': int, 'name': str, 'numbers': list[int], 'time': str}, ...]
+        self.winners: list[dict] = []
         
         # Tạo danh sách số ban đầu
         self.available_numbers = list(range(start_number, end_number + 1))
@@ -97,6 +100,7 @@ class WheelSession:
             'owner_id': self.owner_id,
             'participants': self.participants,
             'started': self.started,
+            'winners': self.winners,
         }
     
     @classmethod
@@ -119,6 +123,7 @@ class WheelSession:
         session.history = data.get('history', [])
         session.participants = data.get('participants', [])
         session.started = data.get('started', False)
+        session.winners = data.get('winners', [])
         return session
 
     # Quản lý người tham gia

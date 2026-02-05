@@ -1,7 +1,8 @@
-""" 
+"""
 Telegram bot handlers và commands 
 """ 
-import logging 
+import logging
+from datetime import datetime
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton 
 from telegram.ext import (
     Application,
@@ -43,6 +44,18 @@ logger = logging.getLogger(__name__)
 # Session manager (shared instance)
 session_manager = SessionManager()
 
+# Lưu kết quả game gần nhất theo chat: {chat_id: {...}}
+last_results: dict[int, dict] = {}
+
+# Thống kê wins/participations theo chat
+stats: dict[int, dict] = {}
+
+# Cooldown chống spam
+COOLDOWN_SPIN_SECONDS = 2
+COOLDOWN_CHECK_SECONDS = 2
+last_spin_time: dict[int, datetime] = {}
+last_check_time: dict[tuple[int, int], datetime] = {}
+
 
 def escape_markdown(text: str) -> str:
     """Escape các ký tự đặc biệt trong Markdown"""
@@ -54,18 +67,18 @@ def escape_markdown(text: str) -> str:
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /start"""
-    user_id = update.effective_user.id
-    
+    """Handler cho lệnh /start - hiển thị hướng dẫn tổng quan"""
     await update.message.reply_text(
-        WELCOME_MESSAGE
+        WELCOME_MESSAGE,
+        parse_mode='Markdown'
     )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /help"""
     await update.message.reply_text(
-        HELP_MESSAGE
+        HELP_MESSAGE,
+        parse_mode='Markdown'
     )
 
 
@@ -116,6 +129,10 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• `/reset` \\- reset lại dãy số\n"
         "• `/endsession` \\- kết thúc game (chỉ host)\n"
         "• `/clear` \\- xoá session trong chat\n\n"
+        "📊 *Thống kê & kết quả*\n"
+        "• `/lastresult` \\- xem kết quả game gần nhất trong chat\n"
+        "• `/leaderboard` \\- bảng xếp hạng trúng thưởng (mặc định)\n"
+        "• `/leaderboard join` \\- bảng xếp hạng số game tham gia\n\n"
         "ℹ️ *Khác*\n"
         "• `/help` \\- hướng dẫn chi tiết\n\n"
         "_Chọn nhanh nút bên dưới rồi bổ sung tham số nếu cần, ví dụ:_\n"
@@ -249,6 +266,17 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     session = session_manager.get_session(chat_id)
     
+    # Cooldown theo chat để tránh spam quay
+    now = datetime.now()
+    last_time = last_spin_time.get(chat_id)
+    if last_time and (now - last_time).total_seconds() < COOLDOWN_SPIN_SECONDS:
+        wait = COOLDOWN_SPIN_SECONDS - (now - last_time).total_seconds()
+        await update.message.reply_text(
+            f"⏱️ Vui lòng đợi khoảng `{wait:.1f}` giây nữa rồi mới quay tiếp.",
+            parse_mode='Markdown'
+        )
+        return
+
     if not session:
         await update.message.reply_text(
             "❌ *Chưa có session\\!*\n\n"
@@ -269,6 +297,7 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         # Spin wheel
         number = spin_wheel(session)
+        last_spin_time[chat_id] = now
         
         # Format message
         message = f"🎲 *Số được chọn: `{number}`*\n\n"
@@ -595,6 +624,122 @@ async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYP
     await update.message.reply_text(text, parse_mode='Markdown')
 
 
+async def lastresult_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /lastresult - hiển thị kết quả game gần nhất trong chat"""
+    chat_id = update.effective_chat.id
+    data = last_results.get(chat_id)
+
+    if not data:
+        await update.message.reply_text(
+            "ℹ️ Chưa có game nào kết thúc trong chat này, hoặc bot chưa lưu kết quả.",
+            parse_mode='Markdown'
+        )
+        return
+
+    game_name = data.get("game_name") or "Không đặt tên"
+    host_name = data.get("host_name") or "Host"
+    ended_at = data.get("ended_at") or ""
+    numbers_drawn = data.get("numbers_drawn") or []
+    winners = data.get("winners") or []
+
+    # Lấy danh sách số đã quay (giới hạn hiển thị)
+    drawn_list = [item.get("number") for item in numbers_drawn if item.get("number") is not None]
+    total_spins = len(drawn_list)
+    if drawn_list:
+        # Hiển thị tối đa 20 số cuối cùng
+        shown = drawn_list[-20:]
+        numbers_str = ", ".join(f"`{n}`" for n in shown)
+        if total_spins > 20:
+            numbers_str = f"... , {numbers_str}"
+    else:
+        numbers_str = "_Chưa quay số nào_"
+
+    msg = (
+        "📊 *Kết quả game gần nhất trong chat:*\n\n"
+        f"🕹️ Tên game: `{escape_markdown(str(game_name))}`\n"
+        f"⭐ Host: `{escape_markdown(str(host_name))}`\n"
+        f"⏱️ Kết thúc lúc: `{escape_markdown(str(ended_at))}`\n"
+        f"🎲 Tổng lượt quay: `{total_spins}`\n"
+        f"🎯 Một số lần quay gần nhất: {numbers_str}\n\n"
+    )
+
+    if winners:
+        msg += "🏆 *Người trúng thưởng:*\n"
+        for w in winners:
+            w_name = escape_markdown(str(w.get("name") or w.get("user_id")))
+            nums = w.get("numbers") or []
+            nums_str = ", ".join(f"`{n}`" for n in nums)
+            msg += f"- {w_name}: {nums_str}\n"
+    else:
+        msg += "🏆 *Không có ai trúng thưởng trong game này\\.*\n"
+
+    await update.message.reply_text(msg, parse_mode='Markdown')
+
+
+async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /leaderboard - bảng xếp hạng trúng thưởng / tham gia"""
+    chat_id = update.effective_chat.id
+    chat_stats = stats.get(chat_id)
+
+    if not chat_stats:
+        await update.message.reply_text(
+            "ℹ️ Chưa có dữ liệu thống kê trong chat này.",
+            parse_mode='Markdown'
+        )
+        return
+
+    mode = "wins"
+    if context.args:
+        arg = context.args[0].lower()
+        if arg.startswith("join") or arg.startswith("part"):
+            mode = "participations"
+
+    wins = chat_stats.get("wins", {})
+    participations = chat_stats.get("participations", {})
+
+    if mode == "wins":
+        if not wins:
+            await update.message.reply_text(
+                "ℹ️ Chưa có ai trúng thưởng trong chat này.",
+                parse_mode='Markdown'
+            )
+            return
+        sorted_items = sorted(
+            wins.items(),
+            key=lambda kv: kv[1].get("count", 0),
+            reverse=True
+        )[:10]
+        title = "🏆 *Top người trúng thưởng nhiều nhất:*"
+    else:
+        if not participations:
+            await update.message.reply_text(
+                "ℹ️ Chưa có ai tham gia game trong chat này.",
+                parse_mode='Markdown'
+            )
+            return
+        sorted_items = sorted(
+            participations.items(),
+            key=lambda kv: kv[1].get("count", 0),
+            reverse=True
+        )[:10]
+        title = "👥 *Top người tham gia nhiều game nhất:*"
+
+    lines = []
+    for idx, (uid, info) in enumerate(sorted_items, start=1):
+        name = escape_markdown(str(info.get("name") or uid))
+        count = info.get("count", 0)
+        lines.append(f"{idx}. {name} - `{count}` lần")
+
+    mode_hint = (
+        "\n\nℹ️ Dùng `/leaderboard wins` hoặc `/leaderboard join` để xem bảng xếp hạng tương ứng."
+    )
+
+    await update.message.reply_text(
+        f"{title}\n\n" + "\n".join(lines) + mode_hint,
+        parse_mode='Markdown'
+    )
+
+
 async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /endsession
     
@@ -622,6 +767,31 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     game_name = getattr(session, "game_name", None)
+
+    # Cập nhật thống kê số lần tham gia dựa trên participants
+    chat_stats = stats.setdefault(chat_id, {"wins": {}, "participations": {}})
+    participations = chat_stats["participations"]
+    for p in session.get_participants():
+        uid = p.get("user_id")
+        if uid is None:
+            continue
+        name = p.get("name") or str(uid)
+        info = participations.get(uid, {"count": 0, "name": name})
+        info["count"] += 1
+        info["name"] = name
+        participations[uid] = info
+
+    # Lưu kết quả game gần nhất cho chat này
+    host_name = user.full_name or (user.username or str(user_id))
+    last_results[chat_id] = {
+        "game_name": game_name,
+        "host_id": user_id,
+        "host_name": host_name,
+        "numbers_drawn": list(session.history),
+        "winners": list(getattr(session, "winners", [])),
+        "ended_at": datetime.now().isoformat(timespec="seconds"),
+    }
+
     session_manager.delete_session(chat_id)
 
     if game_name:
@@ -648,6 +818,17 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user = update.effective_user
     session = session_manager.get_session(chat_id)
+
+    # Cooldown theo user trong từng chat để tránh spam check
+    key = (chat_id, user.id)
+    now = datetime.now()
+    last_time = last_check_time.get(key)
+    if last_time and (now - last_time).total_seconds() < COOLDOWN_CHECK_SECONDS:
+        await update.message.reply_text(
+            "⏱️ Bạn vừa /check xong, đợi vài giây rồi thử lại nhé.",
+            parse_mode='Markdown'
+        )
+        return
 
     if not session:
         await update.message.reply_text(
@@ -736,7 +917,29 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if is_winner:
         display_name = user.full_name or (user.username or str(user.id))
-        winner_numbers = ", ".join(f"`{n}`" for n in sorted(set(matched)))
+        winner_set = sorted(set(matched))
+        winner_numbers = ", ".join(f"`{n}`" for n in winner_set)
+
+        # Ghi lại thông tin người trúng vào session.winners
+        if not hasattr(session, "winners"):
+            session.winners = []
+        session.winners.append(
+            {
+                "user_id": user.id,
+                "name": display_name,
+                "numbers": winner_set,
+                "time": now.isoformat(timespec="seconds"),
+            }
+        )
+
+        # Cập nhật thống kê wins cho leaderboard
+        chat_stats = stats.setdefault(chat_id, {"wins": {}, "participations": {}})
+        wins = chat_stats["wins"]
+        info = wins.get(user.id, {"count": 0, "name": display_name})
+        info["count"] += 1
+        info["name"] = display_name
+        wins[user.id] = info
+
         lines.append(
             f"\n🏆 *Chúc mừng* {escape_markdown(display_name)} *\\!* \n"
             f"Vé của bạn là *TRÚNG THƯỞNG* với ít nhất *4 số* đã quay:\n"
@@ -752,6 +955,9 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown'
     )
 
+    # Sau khi xử lý xong, cập nhật timestamp cooldown cho user
+    last_check_time[key] = now
+
 
 def setup_bot(token: str) -> Application:
     """Setup và trả về Application instance"""
@@ -764,6 +970,8 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("newsession", newsession_command))
     application.add_handler(CommandHandler("startsession", startsession_command))
     application.add_handler(CommandHandler("endsession", endsession_command))
+    application.add_handler(CommandHandler("lastresult", lastresult_command))
+    application.add_handler(CommandHandler("leaderboard", leaderboard_command))
     application.add_handler(CommandHandler("join", join_command))
     application.add_handler(CommandHandler("out", out_command))
     application.add_handler(CommandHandler("players", players_command))
