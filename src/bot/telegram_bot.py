@@ -156,6 +156,15 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user = update.effective_user
     user_id = user.id
 
+    # Không cho tạo session mới nếu chat đang có session chưa end
+    if session_manager.has_session(chat_id):
+        await update.message.reply_text(
+            "⚠️ Chat này đang có game hoạt động\\. "
+            "Vui lòng dùng `/endsession` để kết thúc hoặc `/clear` để xoá trước khi tạo game mới\\.",
+            parse_mode='Markdown'
+        )
+        return
+
     if not context.args:
         await update.message.reply_text(
             "❌ *Sai cú pháp\\!*\n\n"
@@ -207,6 +216,15 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     
+    # Không cho tạo session mới nếu chat đang có session chưa end
+    if session_manager.has_session(chat_id):
+        await update.message.reply_text(
+            "⚠️ Chat này đang có game hoạt động\\. "
+            "Vui lòng dùng `/endsession` để kết thúc hoặc `/clear` để xoá trước khi tạo game mới\\.",
+            parse_mode='Markdown'
+        )
+        return
+
     if not context.args or len(context.args) < 2:
         await update.message.reply_text(
             "❌ *Sai cú pháp\\!*\n\n"
@@ -391,7 +409,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /history - hiển thị lịch sử quay gần đây"""
+    """Handler cho lệnh /history - hiển thị toàn bộ lịch sử quay của game hiện tại"""
     chat_id = update.effective_chat.id
     session = session_manager.get_session(chat_id)
     
@@ -403,7 +421,8 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    history = session.get_recent_history(limit=10)
+    # Lấy toàn bộ lịch sử quay từ đầu đến giờ
+    history = session.history
     if not history:
         await update.message.reply_text(
             "ℹ️ Chưa có lịch sử quay nào.",
@@ -412,13 +431,13 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     lines = []
-    # Hiển thị từ lần quay mới nhất trở về trước
-    for idx, item in enumerate(reversed(history), start=1):
+    # Hiển thị theo thứ tự thời gian (từ lần quay đầu tiên)
+    for idx, item in enumerate(history, start=1):
         number = item.get("number")
         time_str = item.get("time")
         lines.append(f"{idx}. `{number}` (lúc {time_str})")
     
-    message = "📜 *Lịch sử quay gần đây:*\n\n" + "\n".join(lines)
+    message = "📜 *Lịch sử quay của game hiện tại:*\n\n" + "\n".join(lines)
     await update.message.reply_text(message, parse_mode='Markdown')
 
 
@@ -896,10 +915,10 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             invalid.append(str(number))
 
     # Một vé được coi là trúng thưởng nếu:
-    # - Có ít nhất 4 số khớp (matched)
+    # - Có ít nhất 5 số khớp (matched)
     # - Không có số nào chưa quay (not_drawn)
     # - Không có số không hợp lệ (invalid)
-    is_winner = len(set(matched)) >= 4 and not not_drawn and not invalid
+    is_winner = len(set(matched)) >= 5 and not not_drawn and not invalid
 
     lines = []
 
@@ -942,7 +961,7 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         lines.append(
             f"\n🏆 *Chúc mừng* {escape_markdown(display_name)} *\\!* \n"
-            f"Vé của bạn là *TRÚNG THƯỞNG* với ít nhất *4 số* đã quay:\n"
+            f"Vé của bạn là *TRÚNG THƯỞNG* với ít nhất *5 số* đã quay:\n"
             f"{winner_numbers}"
         )
 
