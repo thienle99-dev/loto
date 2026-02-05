@@ -33,6 +33,21 @@ wheels/
 *.swo
 *~
 
+# Cursor / editor metadata
+.cursor/
+.codex/
+
+# Local data / cache (nếu có)
+__cache__/
+.pytest_cache/
+.mypy_cache/
+
+# Generated reports / artifacts
+coverage.xml
+.coverage
+.coverage.*
+htmlcov/
+
 # OS
 .DS_Store
 Thumbs.db
