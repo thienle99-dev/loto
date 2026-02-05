@@ -725,7 +725,7 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             return
         sorted_items = sorted(
             wins.items(),
-            key=lambda kv: kv[1].get("count", 0),
+            key=lambda kv: kv[1].get("count", 0.0),
             reverse=True
         )[:10]
         title = "🏆 *Top người trúng thưởng nhiều nhất:*"
@@ -738,7 +738,7 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             return
         sorted_items = sorted(
             participations.items(),
-            key=lambda kv: kv[1].get("count", 0),
+            key=lambda kv: kv[1].get("count", 0.0),
             reverse=True
         )[:10]
         title = "👥 *Top người tham gia nhiều game nhất:*"
@@ -746,8 +746,13 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     lines = []
     for idx, (uid, info) in enumerate(sorted_items, start=1):
         name = escape_markdown(str(info.get("name") or uid))
-        count = info.get("count", 0)
-        lines.append(f"{idx}. {name} - `{count}` lần")
+        count = float(info.get("count", 0.0))
+        # Hiển thị số nguyên nếu tròn, ngược lại hiển thị 2 chữ số thập phân
+        if count.is_integer():
+            count_str = str(int(count))
+        else:
+            count_str = f"{count:.2f}"
+        lines.append(f"{idx}. {name} - `{count_str}` lần")
 
     mode_hint = (
         "\n\nℹ️ Dùng `/leaderboard wins` hoặc `/leaderboard join` để xem bảng xếp hạng tương ứng."
@@ -787,18 +792,40 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     game_name = getattr(session, "game_name", None)
 
-    # Cập nhật thống kê số lần tham gia dựa trên participants
+    # Cập nhật thống kê cho leaderboard
     chat_stats = stats.setdefault(chat_id, {"wins": {}, "participations": {}})
+
+    # 1) Số lần tham gia dựa trên participants
     participations = chat_stats["participations"]
     for p in session.get_participants():
         uid = p.get("user_id")
         if uid is None:
             continue
         name = p.get("name") or str(uid)
-        info = participations.get(uid, {"count": 0, "name": name})
-        info["count"] += 1
+        info = participations.get(uid, {"count": 0.0, "name": name})
+        info["count"] += 1.0
         info["name"] = name
         participations[uid] = info
+
+    # 2) Số lần trúng thưởng: chia đều 1 điểm cho tất cả người trúng trong game này
+    wins = chat_stats["wins"]
+    winners_list = list(getattr(session, "winners", []))
+    unique_winners: dict[int, str] = {}
+    for w in winners_list:
+        uid = w.get("user_id")
+        if uid is None:
+            continue
+        name = w.get("name") or str(uid)
+        unique_winners[uid] = name
+
+    total_winners = len(unique_winners)
+    if total_winners > 0:
+        share = 1.0 / total_winners
+        for uid, name in unique_winners.items():
+            info = wins.get(uid, {"count": 0.0, "name": name})
+            info["count"] += share
+            info["name"] = name
+            wins[uid] = info
 
     # Lưu kết quả game gần nhất cho chat này
     host_name = user.full_name or (user.username or str(user_id))
@@ -951,14 +978,6 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             }
         )
 
-        # Cập nhật thống kê wins cho leaderboard
-        chat_stats = stats.setdefault(chat_id, {"wins": {}, "participations": {}})
-        wins = chat_stats["wins"]
-        info = wins.get(user.id, {"count": 0, "name": display_name})
-        info["count"] += 1
-        info["name"] = display_name
-        wins[user.id] = info
-
         lines.append(
             f"\n🏆 *Chúc mừng* {escape_markdown(display_name)} *\\!* \n"
             f"Vé của bạn là *TRÚNG THƯỞNG* với ít nhất *5 số* đã quay:\n"
@@ -976,6 +995,62 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Sau khi xử lý xong, cập nhật timestamp cooldown cho user
     last_check_time[key] = now
+
+
+async def xoakinh_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /xoakinh - xoá vé trúng thưởng gần nhất của chính mình trong game hiện tại"""
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+    user_id = user.id
+    session = session_manager.get_session(chat_id)
+
+    if not session:
+        await update.message.reply_text(
+            "❌ *Chưa có game nào trong chat\\!*",
+            parse_mode="Markdown",
+        )
+        return
+
+    if not getattr(session, "started", False):
+        await update.message.reply_text(
+            "⏱️ Game chưa bắt đầu hoặc đã bị xoá, không có vé nào để xoá.",
+            parse_mode="Markdown",
+        )
+        return
+
+    winners = list(getattr(session, "winners", []))
+    if not winners:
+        await update.message.reply_text(
+            "ℹ️ Hiện chưa có vé nào được ghi nhận là *trúng thưởng*.",
+            parse_mode="Markdown",
+        )
+        return
+
+    # Tìm lần trúng gần nhất của chính user (từ cuối danh sách)
+    idx_to_remove = None
+    for i in range(len(winners) - 1, -1, -1):
+        if winners[i].get("user_id") == user_id:
+            idx_to_remove = i
+            break
+
+    if idx_to_remove is None:
+        await update.message.reply_text(
+            "ℹ️ Bạn hiện chưa có vé nào được ghi nhận là *trúng thưởng* trong game này.",
+            parse_mode="Markdown",
+        )
+        return
+
+    removed = winners.pop(idx_to_remove)
+    session.winners = winners
+
+    numbers = removed.get("numbers") or []
+    numbers_str = ", ".join(f"`{n}`" for n in numbers)
+
+    await update.message.reply_text(
+        "✅ Đã xoá vé trúng thưởng gần nhất của bạn khỏi danh sách kết quả.\n\n"
+        f"🧾 Vé vừa xoá: {numbers_str}" if numbers_str else "✅ Đã xoá vé trúng thưởng gần nhất của bạn.",
+        parse_mode="Markdown",
+    )
 
 
 def setup_bot(token: str) -> Application:
@@ -996,6 +1071,7 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("danhsach", players_command))
     application.add_handler(CommandHandler("quay", spin_command))
     application.add_handler(CommandHandler("kinh", check_command))
+    application.add_handler(CommandHandler("xoakinh", xoakinh_command))
     application.add_handler(CommandHandler("lichsu", history_command))
     application.add_handler(CommandHandler("trangthai", status_command))
     application.add_handler(CommandHandler("datlai", reset_command))
