@@ -1,8 +1,8 @@
-"""
+""" 
 Telegram bot handlers và commands 
 """ 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton 
 from telegram.ext import (
     Application,
@@ -56,6 +56,45 @@ COOLDOWN_CHECK_SECONDS = 2
 last_spin_time: dict[int, datetime] = {}
 last_check_time: dict[tuple[int, int], datetime] = {}
 
+# Timeout session nếu quá lâu không quay (tính theo phút)
+SESSION_TIMEOUT_MINUTES = 10
+
+# Danh sách mã vé/màu cho game
+TICKET_CODES: list[str] = [
+    "cam1",
+    "cam2",
+    "do1",
+    "do2",
+    "duong1",
+    "duong2",
+    "hong1",
+    "hong2",
+    "luc1",
+    "luc2",
+    "tim1",
+    "tim2",
+    "vang1",
+    "vang2",
+    "xanh1",
+    "xanh2",
+]
+
+# Map mã vé -> đường dẫn ảnh tương ứng (chỉ gửi ảnh nếu file tồn tại)
+TICKET_IMAGES: dict[str, Path] = {
+    "cam1": Path(__file__).parent.parent.parent / "images" / "cam_1.jpg",
+    "cam2": Path(__file__).parent.parent.parent / "images" / "cam_2.jpg",
+    "do1": Path(__file__).parent.parent.parent / "images" / "do_1.jpg",
+    "do2": Path(__file__).parent.parent.parent / "images" / "do_2.jpg",
+    "duong1": Path(__file__).parent.parent.parent / "images" / "duong_1.jpg",
+    "duong2": Path(__file__).parent.parent.parent / "images" / "duong_2.jpg",
+    "hong1": Path(__file__).parent.parent.parent / "images" / "hong_1.jpg",
+    "hong2": Path(__file__).parent.parent.parent / "images" / "hong_2.jpg",
+    "luc1": Path(__file__).parent.parent.parent / "images" / "luc_1.jpg",
+    "luc2": Path(__file__).parent.parent.parent / "images" / "luc_2.jpg",
+    "tim1": Path(__file__).parent.parent.parent / "images" / "tim_1.jpg",
+    "tim2": Path(__file__).parent.parent.parent / "images" / "tim_2.jpg",
+}
+
 
 def escape_markdown(text: str) -> str:
     """Escape các ký tự đặc biệt trong Markdown"""
@@ -64,6 +103,40 @@ def escape_markdown(text: str) -> str:
     for char in special_chars:
         text = text.replace(char, f'\\{char}')
     return text
+
+
+def is_session_expired(session) -> bool:
+    """Kiểm tra session có hết hạn do lâu không hoạt động (không quay số) hay không."""
+    timeout = timedelta(minutes=SESSION_TIMEOUT_MINUTES)
+
+    # Nếu đã có lịch sử quay, dùng thời gian lần quay gần nhất
+    if getattr(session, "history", None):
+        last_time_str = session.history[-1].get("time")
+        try:
+            last_time = datetime.fromisoformat(last_time_str)
+        except Exception:
+            last_time = session.updated_at
+    else:
+        # Chưa quay lần nào: dùng thời gian tạo game
+        last_time = getattr(session, "updated_at", getattr(session, "created_at", datetime.now()))
+
+    return datetime.now() - last_time > timeout
+
+
+async def ensure_active_session(update: Update, chat_id: int, session) -> bool:
+    """
+    Đảm bảo session còn hiệu lực.
+    Nếu đã hết hạn: xoá session, thông báo cho user và trả về False.
+    """
+    if is_session_expired(session):
+        session_manager.delete_session(chat_id)
+        await update.message.reply_text(
+            "⏱️ *Game đã hết hạn do quá lâu không quay số\\!* \n\n"
+            "Host hãy dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game mới nhé.",
+            parse_mode="Markdown",
+        )
+        return False
+    return True
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -303,6 +376,10 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Kiểm tra timeout session
+    if not await ensure_active_session(update, chat_id, session):
+        return
+
     # Yêu cầu host đã /startsession trước khi quay
     if not getattr(session, "started", False):
         await update.message.reply_text(
@@ -388,6 +465,10 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='Markdown'
         )
         return
+
+    # Kiểm tra timeout session
+    if not await ensure_active_session(update, chat_id, session):
+        return
     
     status = get_session_status(session)
     
@@ -419,6 +500,10 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước nhé\\.",
             parse_mode='Markdown'
         )
+        return
+
+    # Kiểm tra timeout session
+    if not await ensure_active_session(update, chat_id, session):
         return
     
     # Lấy toàn bộ lịch sử quay từ đầu đến giờ
@@ -884,6 +969,10 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Kiểm tra timeout session
+    if not await ensure_active_session(update, chat_id, session):
+        return
+
     # Yêu cầu game đã được host /startsession
     if not getattr(session, "started", False):
         await update.message.reply_text(
@@ -1053,6 +1142,129 @@ async def xoakinh_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /layve - chọn / xem vé (mã màu) trước khi game bắt đầu"""
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+    user_id = user.id
+    session = session_manager.get_session(chat_id)
+
+    if not session:
+        await update.message.reply_text(
+            "❌ *Chưa có game nào trong chat\\!*\n\n"
+            "Host dùng `/moi <tên_game>` hoặc `/phamvi <x> <y>` để tạo game trước nhé\\.",
+            parse_mode="Markdown",
+        )
+        return
+
+    # Kiểm tra timeout session
+    if not await ensure_active_session(update, chat_id, session):
+        return
+
+    # Khởi tạo cấu trúc vé nếu chưa có
+    if not hasattr(session, "tickets"):
+        session.tickets = {}
+    if not hasattr(session, "user_tickets"):
+        session.user_tickets = {}
+
+    tickets: dict[str, int] = session.tickets
+    user_tickets: dict[int, str] = session.user_tickets
+
+    # Nếu game đã bắt đầu: không cho lấy/đổi vé nữa, chỉ thông báo
+    if getattr(session, "started", False):
+        current = user_tickets.get(user_id)
+        if current:
+            await update.message.reply_text(
+                f"ℹ️ Game đã bắt đầu\\. Vé của bạn là: `{current}`\\. "
+                "Không thể đổi vé nữa.",
+                parse_mode="Markdown",
+            )
+        else:
+            await update.message.reply_text(
+                "ℹ️ Game đã bắt đầu và bạn chưa đăng ký vé nào\\. "
+                "Không thể lấy vé mới nữa.",
+                parse_mode="Markdown",
+            )
+        return
+
+    # Không có tham số: liệt kê các vé và trạng thái
+    if not context.args:
+        lines: list[str] = []
+        current = user_tickets.get(user_id)
+        for code in TICKET_CODES:
+            holder_id = tickets.get(code)
+            if holder_id is None:
+                status = "🟢 *Còn trống*"
+            elif holder_id == user_id:
+                status = "🧾 *Bạn đang giữ*"
+            else:
+                status = "🔴 *Đã có người lấy*"
+
+            lines.append(f"- `{code}` → {status}")
+
+        header = "🎟️ *Danh sách vé hiện có:*\n\n"
+        if current:
+            header += f"🧾 Vé hiện tại của bạn: `{current}`\n\n"
+        else:
+            header += "🧾 Bạn chưa chọn vé nào\\.\n\n"
+
+        header += "Dùng `/layve <mã_vé>` để chọn hoặc đổi vé\\. Ví dụ: `/layve tim1`"
+        await update.message.reply_text(
+            header + "\n" + "\n".join(lines),
+            parse_mode="Markdown",
+        )
+        return
+
+    # Có tham số: cố gắng lấy / đổi vé
+    code = context.args[0].lower()
+
+    if code not in TICKET_CODES:
+        await update.message.reply_text(
+            "❌ *Mã vé không hợp lệ\\!*\n\n"
+            f"Các vé hợp lệ: {', '.join(f'`{c}`' for c in TICKET_CODES)}",
+            parse_mode="Markdown",
+        )
+        return
+
+    holder_id = tickets.get(code)
+    current = user_tickets.get(user_id)
+
+    # Vé đang có người khác giữ
+    if holder_id is not None and holder_id != user_id:
+        await update.message.reply_text(
+            f"⚠️ Vé `{code}` đã có người khác chọn rồi, bạn hãy chọn mã vé khác nhé.",
+            parse_mode="Markdown",
+        )
+        return
+
+    # Trả vé cũ nếu đang giữ vé khác
+    if current and current != code:
+        tickets.pop(current, None)
+
+    # Gán vé mới cho user
+    tickets[code] = user_id
+    user_tickets[user_id] = code
+
+    await update.message.reply_text(
+        f"✅ Bạn đã chọn vé: `{code}`\n\n"
+        "Nếu bạn gọi `/layve <mã_vé_khác>` trước khi game bắt đầu, vé cũ sẽ được trả lại và thay bằng vé mới.",
+        parse_mode="Markdown",
+    )
+
+    # Gửi ảnh vé tương ứng nếu có file
+    image_path = TICKET_IMAGES.get(code)
+    if image_path is not None and image_path.is_file():
+        try:
+            with open(image_path, "rb") as f:
+                await update.message.reply_photo(
+                    photo=f,
+                    caption=f"🎟️ Vé của bạn: `{code}`",
+                    parse_mode="Markdown",
+                )
+        except Exception as e:
+            logger.error("Không thể gửi ảnh vé %s: %s", code, e)
+
+
 def setup_bot(token: str) -> Application:
     """Setup và trả về Application instance"""
     application = Application.builder().token(token).build()
@@ -1069,6 +1281,7 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("ketthuc", endsession_command))
     application.add_handler(CommandHandler("thamgia", join_command))
     application.add_handler(CommandHandler("danhsach", players_command))
+    application.add_handler(CommandHandler("layve", layve_command))
     application.add_handler(CommandHandler("quay", spin_command))
     application.add_handler(CommandHandler("kinh", check_command))
     application.add_handler(CommandHandler("xoakinh", xoakinh_command))
