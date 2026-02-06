@@ -71,12 +71,24 @@ TICKET_NAMES = {
 
 # Các câu thoại vui khi số đợi xuất hiện
 WAITING_RESPONSES = [
-    "🚀 Chờ đợi là hạnh phúc! Em **{number}** đã cập bến. Chúc mừng {mentions}!",
+    "� Số **{number}** về rồi kìa! {mentions} đâu ra nhận hàng!",
+    "�🚀 Chờ đợi là hạnh phúc! Em **{number}** đã cập bến. Chúc mừng {mentions}!",
     "📢 Loa loa! Tin chuẩn chưa anh em? Số **{number}** nổ rồi kìa {mentions} ơi!",
     "🎉 Cuối cùng thì **{number}** cũng chịu ra mặt! {mentions} check ngay đi!",
     "👀 Ơ kìa, ai đợi số **{number}** thì dậy đi thôi! {mentions} dậy đi!",
     "🎲 Cầu được ước thấy! Số **{number}** đã về đội của {mentions}!",
     "💥 Bùm! **{number}** xuất hiện như một vị thần! {mentions} sướng nhé!",
+    "🆘 Giải cứu thành công! Em **{number}** đã được giải thoát. {mentions} mau nhận người thân!",
+    "💎 Kim cương quan điểm luôn! Số **{number}** đỉnh nóc, kịch trần. {mentions} đâu rồi!",
+    "📞 Alo alo, tổng đài báo số **{number}** vừa gọi tên {mentions}. Nghe máy đi!",
+    "🧘 Tĩnh tâm nào... **{number}** đã đến! {mentions} hít thở sâu và nhận hàng!",
+    "🦄 Ảo thật đấy! Số **{number}** lù lù xuất hiện. {mentions} có tin được không?",
+    "🏃 Chạy đi đâu cho thoát! **{number}** tóm được {mentions} rồi nhé!",
+    "🎯 Bách phát bách trúng! **{number}** găm thẳng vào tim {mentions}!",
+    "🥂 Nâng ly lên nào! **{number}** đã về, party thôi {mentions} ơi!",
+    "🤫 Suỵt... nghe nói **{number}** là con số định mệnh của {mentions} đấy!",
+    "🛒 Chốt đơn! **{number}** đã vào giỏ hàng của {mentions}. Thanh toán niềm vui nào!",
+    "🌈 Sau cơn mưa trời lại sáng, sau bao ngày đợi **{number}** cũng sang. Chúc mừng {mentions}!",
 ]
 TICKET_DISPLAY_NAMES: dict[str, str] = {
     "cam1": "Cam số 1",
