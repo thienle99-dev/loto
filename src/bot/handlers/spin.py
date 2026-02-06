@@ -55,10 +55,16 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Hiển thị kết quả
         drawn_numbers = [item.get("number") for item in session.history[-10:]]
-        history_str = " -> ".join(f"`{n}`" for n in drawn_numbers)
         
         message = f"🎯 *SỐ TRÚNG THƯỞNG: `{number}`*\n\n"
-        message += f"📜 Gần đây: {history_str}\n"
+        
+        # Hiển thị lịch sử gần đây theo dọc
+        if drawn_numbers:
+            message += "📜 *Gần đây:*\n"
+            for num in drawn_numbers:
+                message += f"   • `{num}`\n"
+            message += "\n"
+        
         message += f"📊 Còn lại: `{session.get_remaining_count()}/{session.get_total_numbers()}`"
         
         keyboard = [
