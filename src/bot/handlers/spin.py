@@ -337,7 +337,10 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [[InlineKeyboardButton("🎲 Quay tiếp", callback_data=f"cmd:quay{suffix}")]]
     if is_winner:
-        keyboard.append([InlineKeyboardButton("🏆 Xem kết quả", callback_data=f"cmd:ket_qua{suffix}")])
+        keyboard.append([
+            InlineKeyboardButton("🏆 Xem kết quả", callback_data=f"cmd:ket_qua{suffix}"),
+            InlineKeyboardButton("🛑 Kết thúc Game", callback_data=f"cmd:ket_thuc{suffix}")
+        ])
 
     await update.message.reply_text(
         "📎 *Kết quả kiểm tra:*\n\n" + "\n".join(lines or ["ℹ️ Không có kết quả."]), 

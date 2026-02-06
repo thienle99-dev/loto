@@ -155,7 +155,7 @@ async def generic_command_callback(update: Update, context: ContextTypes.DEFAULT
     # Import handlers here to avoid circular dependencies
     from src.bot.handlers.game import vongmoi_command, endround_command, newsession_command, startsession_command, endsession_command
     from src.bot.handlers.player import layve_command, players_command
-    from src.bot.handlers.spin import spin_command, reset_command, leaderboard_command, status_command
+    from src.bot.handlers.spin import spin_command, reset_command, leaderboard_command, status_command, lastresult_command
 
     try:
         if command == "lay_ve":
@@ -196,6 +196,8 @@ async def generic_command_callback(update: Update, context: ContextTypes.DEFAULT
             context.user_data["target_chat_id"] = target_chat_id
         elif command == "ket_thuc_vong":
             await endround_command(mock_update, context)
+        elif command == "ket_qua":
+            await lastresult_command(mock_update, context)
         
         await query.answer()
     except Exception as e:
