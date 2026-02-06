@@ -75,6 +75,12 @@ async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Khởi tạo lịch sử game cho vòng mới
     round_history[chat_id] = []
+    
+    # Reset thống kê của chat cho vòng mới (để token tính từ 0)
+    chat_stats = get_chat_stats(chat_id)
+    chat_stats["wins"] = {}
+    chat_stats["participations"] = {}
+    save_stats(chat_id, chat_stats)
 
     target_chat_id = chat_id
     suffix = f":{target_chat_id}"
@@ -110,13 +116,7 @@ async def endround_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     owner_id = round_info.get("owner_id")
     user_id = update.effective_user.id
 
-    # 1. Kiểm tra quyền sở hữu
-    if owner_id and owner_id != user_id:
-        await update.message.reply_text(
-            f"❌ Chỉ người tạo vòng (`{owner_id}`) mới có quyền kết thúc vòng này.",
-            parse_mode='Markdown'
-        )
-        return
+    # Bỏ qua kiểm tra quyền sở hữu theo yêu cầu
 
     # 2. Kiểm tra nếu đang có ván game đang chạy trong vòng này
     if session_manager.has_session(chat_id):
