@@ -32,6 +32,13 @@ def main():
 
     # Khởi tạo database (nếu chưa có)
     init_db()
+
+    # Khôi phục các vòng chơi đang hoạt động từ DB vào RAM
+    from src.db.sqlite_store import load_all_active_rounds
+    from src.bot.constants import active_rounds
+    loaded_rounds = load_all_active_rounds()
+    active_rounds.update(loaded_rounds)
+    logger.info(f"Đã khôi phục {len(loaded_rounds)} vòng chơi đang hoạt động.")
     
     # Setup bot
     application = setup_bot(TELEGRAM_BOT_TOKEN)

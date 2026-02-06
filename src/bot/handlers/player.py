@@ -90,16 +90,23 @@ async def players_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines = []
     owner_line_done = False
+    user_tickets = getattr(session, "user_tickets", {})
     for p in participants:
         uid = p.get("user_id")
         name = p.get("name") or str(uid)
         prefix = "-"
         suffix = ""
+        
+        # Lấy thông tin vé
+        ticket_code = user_tickets.get(uid)
+        ticket_info = f" ({escape_markdown(ticket_display_name(ticket_code))})" if ticket_code else " (Chưa lấy vé)"
+        
         if owner_id is not None and uid == owner_id and not owner_line_done:
             prefix = "⭐"
             suffix = " *(Host)*"
             owner_line_done = True
-        lines.append(f"{prefix} {escape_markdown(name)}{suffix}")
+        
+        lines.append(f"{prefix} {escape_markdown(name)}{suffix}{ticket_info}")
 
     if owner_id is not None and not owner_line_done:
         lines.insert(0, "⭐ Chủ phòng (Host)")

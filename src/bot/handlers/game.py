@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes
 from src.bot.constants import active_rounds, MAX_NUMBERS, DEFAULT_REMOVE_AFTER_SPIN, last_results
 from src.bot.utils import escape_markdown, session_manager, get_chat_stats
 from src.utils.validators import validate_range, validate_number
-from src.db.sqlite_store import save_stats, save_last_result
+from src.db.sqlite_store import save_stats, save_last_result, save_active_round, delete_active_round_row
 
 async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /vong_moi <tên_vòng> - tạo vòng chơi mới trong chat."""
@@ -60,12 +60,13 @@ async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Nếu đang có vòng cũ, ghi đè bằng vòng mới
+    # Lưu vào RAM và DB
     active_rounds[chat_id] = {
         "round_name": round_name,
         "owner_id": user_id,
         "created_at": datetime.now().isoformat(timespec="seconds"),
     }
+    save_active_round(chat_id, active_rounds[chat_id])
 
     target_chat_id = chat_id
     suffix = f":{target_chat_id}"
@@ -98,9 +99,35 @@ async def endround_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     round_info = active_rounds[chat_id]
     round_name = round_info.get("round_name", "Không tên")
-    
-    # Xoá vòng chơi khỏi active_rounds
+    owner_id = round_info.get("owner_id")
+    user_id = update.effective_user.id
+
+    # 1. Kiểm tra quyền sở hữu
+    if owner_id and owner_id != user_id:
+        await update.message.reply_text(
+            f"❌ Chỉ người tạo vòng (`{owner_id}`) mới có quyền kết thúc vòng này.",
+            parse_mode='Markdown'
+        )
+        return
+
+    # 2. Kiểm tra nếu đang có ván game đang chạy trong vòng này
+    if session_manager.has_session(chat_id):
+        target_chat_id = chat_id
+        suffix = f":{target_chat_id}"
+        await update.message.reply_text(
+            "⚠️ *Không thể kết thúc vòng khi còn ván game đang chạy\\!*\n\n"
+            "Vui lòng kết thúc ván game bằng `/ket_thuc` trước.",
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎲 Quay số", callback_data=f"cmd:quay{suffix}"),
+                 InlineKeyboardButton("🛑 Kết thúc Game", callback_data=f"cmd:ket_thuc{suffix}")]
+            ])
+        )
+        return
+
+    # 3. Xoá vòng chơi khỏi active_rounds (RAM) và DB
     del active_rounds[chat_id]
+    delete_active_round_row(chat_id)
     
     target_chat_id = chat_id
     suffix = f":{target_chat_id}"

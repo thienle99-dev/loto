@@ -19,7 +19,7 @@ WELCOME_MESSAGE = """
 Bot hỗ trợ chơi loto / quay số trong nhóm chat với nhiều tiện ích quản lý phòng chơi.
 
 📖 *Flow cơ bản:*
-1️⃣ *(Tuỳ chọn)* Host tạo *vòng chơi*  
+1️⃣ *Bắt buộc:* Host tạo *vòng chơi* trước khi tạo game  
    • `/vong_moi <tên_vòng>` \- gom nhiều game vào cùng một vòng (vd: `Loto tối nay`)
 
 2️⃣ Host tạo *game* trong chat / trong vòng  
@@ -57,7 +57,7 @@ HELP_MESSAGE = """
 📖 *Hướng dẫn chi tiết Loto Bot (snake_case commands):*
 
 1️⃣ *Tạo vòng chơi & game (Host)*
-   • *(Tuỳ chọn)* `/vong_moi <tên_vòng>` \- tạo vòng chơi, gom nhiều game vào cùng một đợt  
+   • *Bắt buộc:* `/vong_moi <tên_vòng>` \- tạo vòng chơi trước khi có thể tạo ván game  
      Ví dụ: `/vong_moi Loto tối nay`
    • `/moi <tên_game>` \- tạo game mới với dãy mặc định `1 -> {MAX_NUMBERS}`  
      Ví dụ: `/moi Ván 1`  

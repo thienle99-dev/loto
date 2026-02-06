@@ -46,6 +46,17 @@ def init_db() -> None:
         """
     )
 
+    # Lưu vòng chơi đang hoạt động theo chat
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS active_rounds (
+            chat_id INTEGER PRIMARY KEY,
+            round_data_json TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+
     # Lưu kết quả game gần nhất theo chat
     cur.execute(
         """
@@ -208,3 +219,40 @@ def load_last_result(chat_id: int) -> Optional[Dict[str, Any]]:
 
     return json.loads(row["data_json"])
 
+# ---------- Active Rounds ----------
+def save_active_round(chat_id: int, round_data: Dict[str, Any]) -> None:
+    """Lưu vòng chơi đang hoạt động."""
+    conn = get_connection()
+    cur = conn.cursor()
+    now = datetime.now().isoformat(timespec="seconds")
+    
+    cur.execute(
+        """
+        INSERT INTO active_rounds(chat_id, round_data_json, created_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(chat_id) DO UPDATE SET
+            round_data_json = excluded.round_data_json,
+            created_at = excluded.created_at
+        """,
+        (chat_id, json.dumps(round_data, ensure_ascii=False), now),
+    )
+    conn.commit()
+    conn.close()
+
+def load_all_active_rounds() -> Dict[int, Dict[str, Any]]:
+    """Tải tất cả các vòng chơi đang hoạt động để khôi phục khi restart."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT chat_id, round_data_json FROM active_rounds")
+    rows = cur.fetchall()
+    conn.close()
+    
+    return {row["chat_id"]: json.loads(row["round_data_json"]) for row in rows}
+
+def delete_active_round_row(chat_id: int) -> None:
+    """Xoá vòng chơi khi kết thúc."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM active_rounds WHERE chat_id = ?", (chat_id,))
+    conn.commit()
+    conn.close()
