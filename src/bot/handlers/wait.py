@@ -36,7 +36,7 @@ async def wait_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for arg in args:
             if arg.isdigit():
                 num = int(arg)
-                if not validate_number(num, session.start_number, session.end_number):
+                if not (session.start_number <= num <= session.end_number):
                     invalid_list.append(arg)
                     continue
                     
