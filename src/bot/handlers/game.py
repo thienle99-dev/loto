@@ -13,11 +13,15 @@ async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = user.id
 
     if not context.args:
+        target_chat_id = chat_id
+        suffix = f":{target_chat_id}"
         await update.message.reply_text(
             "❌ *Sai cú pháp\\!*\n\n"
             "Sử dụng: `/vong_moi <tên_vòng>`\n"
-            "Ví dụ: `/vong_moi Loto tối nay`",
+            "Ví dụ: `/vong_moi Loto tối nay`\n\n"
+            "ℹ️ Vòng chơi là đơn vị lớn nhất, chứa nhiều ván game bên trong.",
             parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📋 Menu điều khiển", callback_data=f"cmd:menu_fallback{suffix}")]])
         )
         return
 
@@ -26,6 +30,22 @@ async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "❌ Tên vòng không được để trống.",
             parse_mode="Markdown",
+        )
+        return
+
+    # Kiểm tra nếu đang có ván game đang chạy
+    if session_manager.has_session(chat_id):
+        target_chat_id = chat_id
+        suffix = f":{target_chat_id}"
+        await update.message.reply_text(
+            "⚠️ *Đang có ván game hoạt động\\!*\n\n"
+            "Vui lòng kết thúc ván game hiện tại trước khi tạo vòng chơi mới bì vòng mới sẽ làm thay đổi lịch sử thống kê.\n"
+            "Hãy dùng các nút bên dưới để điều khiển nhanh.",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎲 Quay số", callback_data=f"cmd:quay{suffix}"),
+                 InlineKeyboardButton("🛑 Kết thúc Game", callback_data=f"cmd:ket_thuc{suffix}")]
+            ])
         )
         return
 
@@ -116,19 +136,30 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     if session_manager.has_session(chat_id):
+        target_chat_id = chat_id
+        suffix = f":{target_chat_id}"
         await update.message.reply_text(
-            "⚠️ Chat này đang có game hoạt động\\. "
-            "Vui lòng dùng `/ket_thuc` để kết thúc hoặc `/xoa` để xoá trước khi tạo game mới\\.",
-            parse_mode='Markdown'
+            "⚠️ *Chat này đang có game hoạt động\\!*\n\n"
+            "Bạn có thể dùng bảng điều khiển bên dưới để tiếp tục hoặc kết thúc game cũ trước khi tạo game mới\\.",
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📋 Menu điều khiển", callback_data=f"cmd:menu_fallback{suffix}")],
+                [InlineKeyboardButton("🎲 Quay số", callback_data=f"cmd:quay{suffix}"),
+                 InlineKeyboardButton("🛑 Kết thúc Game", callback_data=f"cmd:ket_thuc{suffix}")]
+            ])
         )
         return
 
     if not context.args:
+        target_chat_id = chat_id
+        suffix = f":{target_chat_id}"
         await update.message.reply_text(
             "❌ *Sai cú pháp\\!*\n\n"
             "Sử dụng: `/moi <tên_game>`\n"
-            "Ví dụ: `/moi Loto tối nay`",
-            parse_mode='Markdown'
+            "Ví dụ: `/moi Loto tối nay`\n\n"
+            "ℹ️ Ván game này sẽ thuộc vòng chơi hiện tại.",
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📋 Menu điều khiển", callback_data=f"cmd:menu_fallback{suffix}")]])
         )
         return
 
@@ -161,8 +192,11 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         target_chat_id = chat_id
         suffix = f":{target_chat_id}"
 
+        round_name = session.round_name if hasattr(session, 'round_name') else "Không có"
+
         await update.message.reply_text(
             f"✅ *Đã tạo game mới\\!*\n\n"
+            f"🔄 Vòng: `{escape_markdown(round_name)}`\n"
             f"🕹️ Tên game: `{escape_markdown(game_name)}`\n"
             f"📊 Khoảng số: `1 -> {MAX_NUMBERS}`\n"
             f"📊 Tổng số: `{session.get_total_numbers()}`\n"
@@ -199,19 +233,29 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if session_manager.has_session(chat_id):
+        target_chat_id = chat_id
+        suffix = f":{target_chat_id}"
         await update.message.reply_text(
-            "⚠️ Chat này đang có game hoạt động\\. "
-            "Vui lòng dùng `/ket_thuc` để kết thúc hoặc `/xoa` để xoá trước khi tạo game mới\\.",
-            parse_mode='Markdown'
+            "⚠️ *Chat này đang có game hoạt động\\!*\n\n"
+            "Bạn có thể dùng bảng điều khiển bên dưới để tiếp tục hoặc kết thúc game cũ trước khi tạo game mới\\.",
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📋 Menu điều khiển", callback_data=f"cmd:menu_fallback{suffix}")],
+                [InlineKeyboardButton("🎲 Quay số", callback_data=f"cmd:quay{suffix}"),
+                 InlineKeyboardButton("🛑 Kết thúc Game", callback_data=f"cmd:ket_thuc{suffix}")]
+            ])
         )
         return
 
     if not context.args or len(context.args) < 2:
+        target_chat_id = chat_id
+        suffix = f":{target_chat_id}"
         await update.message.reply_text(
             "❌ *Sai cú pháp\\!*\n\n"
             "Sử dụng: `/pham_vi <x> <y>`\n"
             "Ví dụ: `/pham_vi 1 100`",
-            parse_mode='Markdown'
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📋 Menu điều khiển", callback_data=f"cmd:menu_fallback{suffix}")]])
         )
         return
     
@@ -252,8 +296,11 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_chat_id = chat_id
         suffix = f":{target_chat_id}"
 
+        round_name = session.round_name if hasattr(session, 'round_name') else "Không có"
+
         await update.message.reply_text(
             f"✅ *Đã tạo game mới\\!*\n\n"
+            f"🔄 Vòng: `{escape_markdown(round_name)}`\n"
             f"📊 Khoảng số: `{start_num} -> {end_num}`\n"
             f"📊 Tổng số: `{session.get_total_numbers()}`\n"
             f"⚙️ Loại bỏ sau khi quay: `{'Có' if session.remove_after_spin else 'Không'}`\n\n"
@@ -285,9 +332,15 @@ async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYP
 
     owner_id = getattr(session, "owner_id", None)
     if owner_id is not None and owner_id != user_id:
+        target_chat_id = chat_id
+        suffix = f":{target_chat_id}"
         await update.message.reply_text(
             "❌ Chỉ *host* (người tạo game) mới được quyền bắt đầu game bằng `/bat_dau`.",
-            parse_mode='Markdown'
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎟️ Lấy vé", callback_data=f"cmd:lay_ve{suffix}"),
+                 InlineKeyboardButton("👥 Danh sách", callback_data=f"cmd:danh_sach{suffix}")]
+            ])
         )
         return
 
@@ -318,11 +371,14 @@ async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYP
             "• `/kinh <dãy_số>` để kiểm tra vé"
         )
 
+    target_chat_id = chat_id
+    suffix = f":{target_chat_id}"
+
     await update.message.reply_text(
         text, 
         parse_mode='Markdown',
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🎲 Quay số đầu tiên", callback_data="cmd:quay")]
+            [InlineKeyboardButton("🎲 Quay số đầu tiên", callback_data=f"cmd:quay{suffix}")]
         ])
     )
 

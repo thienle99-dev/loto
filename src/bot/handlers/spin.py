@@ -59,7 +59,10 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message += f"📜 Gần đây: {history_str}\n"
         message += f"📊 Còn lại: `{session.get_remaining_count()}/{session.get_total_numbers()}`"
         
-        keyboard = [[InlineKeyboardButton("🎲 Quay tiếp", callback_data=f"cmd:quay{suffix}")]]
+        keyboard = [
+            [InlineKeyboardButton("🎲 Quay tiếp", callback_data=f"cmd:quay{suffix}"),
+             InlineKeyboardButton("📜 Các số đã ra", callback_data=f"cmd:trang_thai{suffix}")]
+        ]
         if session.is_empty():
             message += "\n\n⚠️ Danh sách đã hết\\! Sử dụng `/reset` để làm mới\\."
             keyboard = [[InlineKeyboardButton("🔄 Reset số", callback_data=f"cmd:dat_lai{suffix}")]]
