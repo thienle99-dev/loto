@@ -1,6 +1,7 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ForceReply
 from telegram.ext import ContextTypes
+from telegram.error import RetryAfter
 from config.config import WELCOME_MESSAGE, HELP_MESSAGE
 
 logger = logging.getLogger(__name__)
@@ -177,6 +178,9 @@ async def generic_command_callback(update: Update, context: ContextTypes.DEFAULT
             await lastresult_command(mock_update, context)
         
         await query.answer()
+    except RetryAfter as e:
+        logger.warning(f"Flood control: {e}")
+        await query.answer(f"⏱️ Vui lòng đợi {e.retry_after} giây rồi thử lại.", show_alert=True)
     except Exception as e:
         logger.error(f"Error in generic_command_callback: {e}")
         await query.answer("Có lỗi xảy ra khi thực hiện lệnh.", show_alert=True)

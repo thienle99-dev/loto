@@ -86,7 +86,7 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         
         # Chỉ hiển thị nút Web App nếu URL là HTTPS (Telegram bắt buộc)
-        if WEB_APP_URL.startswith("https"):
+        if WEB_APP_URL and WEB_APP_URL.startswith("https"):
              keyboard.append([InlineKeyboardButton("🎡 Xem lại (Animation)", web_app=WebAppInfo(url=f"{WEB_APP_URL}?start={session.start_number}&end={session.end_number}&target={number}"))])
         if session.is_empty():
             message += "\n\n⚠️ Danh sách đã hết\\! Sử dụng `/reset` để làm mới\\."

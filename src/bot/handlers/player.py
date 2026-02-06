@@ -3,6 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from src.bot.constants import TICKET_CODES, TICKET_IMAGES
 from src.bot.utils import escape_markdown, session_manager, ticket_display_name, ensure_active_session
+from telegram.error import BadRequest
 
 logger = logging.getLogger(__name__)
 
@@ -313,4 +314,10 @@ async def lay_ve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard.append(row)
             row = []
     
-    await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(keyboard))
+    try:
+        await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(keyboard))
+    except BadRequest as e:
+        # Telegram hay báo lỗi nếu markup không thay đổi
+        if "Message is not modified" in str(e):
+            return
+        raise
