@@ -52,7 +52,11 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_chat_id = chat_id
         suffix = f":{target_chat_id}"
         
+        drawn_numbers = [item.get("number") for item in session.history[-10:]]
+        history_str = " -> ".join(f"`{n}`" for n in drawn_numbers)
+        
         message = f"🎲 *Số được chọn: `{number}`*\n\n"
+        message += f"📜 Gần đây: {history_str}\n"
         message += f"📊 Còn lại: `{session.get_remaining_count()}/{session.get_total_numbers()}`"
         
         keyboard = [[InlineKeyboardButton("🎲 Quay tiếp", callback_data=f"cmd:quay{suffix}")]]
