@@ -1,373 +1,76 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="vi">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
-    <title>Loto Bot - Vòng Quay May Mắn</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Loto Dashboard</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <style>
-      :root {
-        --primary-color: #ff4757;
-        --secondary-color: #2f3542;
-        --accent-color: #ffa502;
-        --bg-color: #1e272e;
-        --text-color: #ffffff;
-        --wheel-border: #f1c40f;
-      }
-
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-        -webkit-tap-highlight-color: transparent;
-      }
-
-      body {
-        font-family:
-          "Inter",
-          -apple-system,
-          BlinkMacSystemFont,
-          "Segoe UI",
-          Roboto,
-          sans-serif;
-        background-color: var(--bg-color);
-        color: var(--text-color);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        min-height: 100vh;
-        overflow: hidden;
-      }
-
-      .container {
-        width: 100%;
-        max-width: 500px;
-        padding: 20px;
-        text-align: center;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 2rem;
-      }
-
-      h1 {
-        font-size: 1.5rem;
-        font-weight: 700;
-        background: linear-gradient(
-          45deg,
-          var(--primary-color),
-          var(--accent-color)
-        );
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0.5rem;
-      }
-
-      .wheel-wrapper {
-        position: relative;
-        width: 320px;
-        height: 320px;
-        filter: drop-shadow(0 0 20px rgba(0, 0, 0, 0.5));
-      }
-
-      #wheel {
-        width: 100%;
-        height: 100%;
-        border-radius: 50%;
-        border: 8px solid var(--wheel-border);
-        position: relative;
-        transition: transform 5s cubic-bezier(0.15, 0, 0.15, 1);
-        background: conic-gradient(
-          #ff4757 0deg 45deg,
-          #2f3542 45deg 90deg,
-          #ffa502 90deg 135deg,
-          #2ed573 135deg 180deg,
-          #1e90ff 180deg 225deg,
-          #747d8c 225deg 270deg,
-          #a29bfe 270deg 315deg,
-          #ff6b81 315deg 360deg
-        );
-        box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.3);
-      }
-
-      .indicator {
-        position: absolute;
-        top: -15px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 30px;
-        height: 50px;
-        background-color: #ffffff;
-        clip-path: polygon(100% 0, 0 0, 50% 100%);
-        z-index: 10;
-        filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.2));
-      }
-
-      .wheel-center {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 60px;
-        height: 60px;
-        background: radial-gradient(circle, #ffffff, #dcdde1);
-        border-radius: 50%;
-        z-index: 5;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
-        font-weight: bold;
-        color: var(--secondary-color);
-        border: 4px solid var(--wheel-border);
-      }
-
-      .result-panel {
-        background: rgba(255, 255, 255, 0.05);
-        padding: 1.5rem;
-        border-radius: 16px;
-        width: 100%;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        min-height: 120px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        transition: all 0.3s ease;
-      }
-
-      .result-number {
-        font-size: 3.5rem;
-        font-weight: 800;
-        color: var(--accent-color);
-        text-shadow: 0 0 15px rgba(255, 165, 2, 0.4);
-        margin: 0.5rem 0;
-      }
-
-      .spin-button {
-        background: linear-gradient(135deg, var(--primary-color), #ff6b81);
-        color: white;
-        border: none;
-        padding: 1rem 3rem;
-        font-size: 1.2rem;
-        font-weight: 700;
-        border-radius: 50px;
-        cursor: pointer;
-        box-shadow: 0 10px 20px rgba(255, 71, 87, 0.3);
-        transition: all 0.2s ease;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-      }
-
-      .spin-button:active {
-        transform: scale(0.95);
-        box-shadow: 0 5px 10px rgba(255, 71, 87, 0.2);
-      }
-
-      .spin-button:disabled {
-        background: #747d8c;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
-      }
-
-      .history {
-        margin-top: 1rem;
-        font-size: 0.9rem;
-        color: #a4b0be;
-      }
-
-      /* Animations */
-      @keyframes pulse {
-        0% {
-          transform: scale(1);
-        }
-        50% {
-          transform: scale(1.05);
-        }
-        100% {
-          transform: scale(1);
-        }
-      }
-
-      .winning .result-number {
-        animation: pulse 0.5s infinite;
-      }
-
-      #labels {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-        top: 0;
-        left: 0;
-        pointer-events: none;
-      }
-
-      .number-label {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform-origin: 0 0;
-        color: white;
-        font-weight: bold;
-        font-size: 14px;
-      }
-    </style>
-  </head>
-  <body>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
     <div class="container">
-      <header>
-        <h1>LOTO PREVIEW</h1>
-        <p id="game-info">Hãy nhấn nút để bắt đầu quay</p>
-      </header>
+        <!-- View: Home -->
+        <div id="home-view" class="view-section">
+            <h1>Loto Dashboard</h1>
+            <div class="card">
+                <h2>👋 Chào mừng</h2>
+                <p style="margin-bottom: 20px; color: #a4b0be;">Sử dụng dashboard để thao tác nhanh hơn.</p>
+                <div class="grid-2">
+                    <button class="btn" onclick="switchView('tickets')">🎟️ Lấy vé</button>
+                    <button class="btn" onclick="tg.sendData('/trang_thai')">📊 Trạng thái</button>
+                    <button class="btn" onclick="tg.sendData('/lich_su')">📜 Lịch sử</button>
+                    <button class="btn" onclick="tg.sendData('/xep_hang')">🏆 Xếp hạng</button>
+                </div>
+            </div>
 
-      <div class="wheel-wrapper">
-        <div class="indicator"></div>
-        <div id="wheel">
-          <canvas id="wheelCanvas" width="320" height="320"></canvas>
+            <div class="card">
+                <h2>🕹️ Host Panel</h2>
+                <button class="btn" style="background: var(--secondary-color)" onclick="tg.sendData('/quay')">🎲 Quay số (Nhanh)</button>
+            </div>
         </div>
-        <div class="wheel-center">LOTTO</div>
-      </div>
 
-      <div class="result-panel" id="resultPanel">
-        <div id="status-text">Kết quả</div>
-        <div class="result-number" id="resultNumber">--</div>
-        <button class="spin-button" id="spinBtn">QUAY SỐ</button>
-      </div>
+        <!-- View: Tickets -->
+        <div id="tickets-view" class="view-section hidden">
+            <h1>Chọn vé của bạn</h1>
+            <div id="ticket-grid" class="grid-2">
+                <!-- Rendered by JS -->
+            </div>
+        </div>
 
-      <div class="history" id="historyText">Chưa có lịch sử quay</div>
+        <!-- View: Wheel (Replay) -->
+        <div id="wheel-view" class="view-section hidden">
+            <div class="wheel-wrapper" style="margin: 0 auto;">
+                <div class="indicator"></div>
+                <div id="wheel">
+                    <canvas id="wheelCanvas" width="300" height="300"></canvas>
+                </div>
+                <div class="wheel-center">LOTO</div>
+            </div>
+            
+            <div class="result-panel" id="resultPanel" style="margin-top: 20px;">
+                <div id="status-text">Kết quả vòng quay</div>
+                <div class="result-number" id="resultNumber">--</div>
+                <button class="spin-button" id="spinBtn">XEM LẠI</button>
+            </div>
+        </div>
     </div>
 
-    <script>
-      const tg = window.Telegram.WebApp;
-      tg.expand();
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <a href="#home" class="nav-item active">
+            <span class="nav-icon">🏠</span>
+            <span>Home</span>
+        </a>
+        <a href="#tickets" class="nav-item">
+            <span class="nav-icon">🎟️</span>
+            <span>Vé</span>
+        </a>
+        <a href="#wheel" class="nav-item">
+            <span class="nav-icon">🎡</span>
+            <span>Quay</span>
+        </a>
+    </nav>
 
-      const canvas = document.getElementById("wheelCanvas");
-      const ctx = canvas.getContext("2d");
-      const spinBtn = document.getElementById("spinBtn");
-      const wheel = document.getElementById("wheel");
-      const resultNumber = document.getElementById("resultNumber");
-      const statusText = document.getElementById("status-text");
-      const historyText = document.getElementById("historyText");
-
-      // Config từ URL query
-      const urlParams = new URLSearchParams(window.location.search);
-      const startNum = parseInt(urlParams.get("start")) || 1;
-      const endNum = parseInt(urlParams.get("end")) || 99;
-
-      let isSpinning = false;
-      let rotation = 0;
-      let history = [];
-
-      function drawWheel() {
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        const radius = canvas.width / 2 - 10;
-        const sections = 8;
-        const colors = [
-          "#ff4757",
-          "#2f3542",
-          "#ffa502",
-          "#2ed573",
-          "#1e90ff",
-          "#747d8c",
-          "#a29bfe",
-          "#ff6b81",
-        ];
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        for (let i = 0; i < sections; i++) {
-          const startAngle = (i * 2 * Math.PI) / sections;
-          const endAngle = ((i + 1) * 2 * Math.PI) / sections;
-
-          ctx.beginPath();
-          ctx.moveTo(centerX, centerY);
-          ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-          ctx.fillStyle = colors[i];
-          ctx.fill();
-          ctx.stroke();
-
-          // Draw emoji/icons
-          ctx.save();
-          ctx.translate(centerX, centerY);
-          ctx.rotate(startAngle + Math.PI / sections);
-          ctx.fillStyle = "white";
-          ctx.font = "20px Arial";
-          ctx.textAlign = "right";
-          ctx.fillText("🍀", radius - 20, 10);
-          ctx.restore();
-        }
-      }
-
-      drawWheel();
-
-      spinBtn.addEventListener("click", () => {
-        if (isSpinning) return;
-
-        isSpinning = true;
-        spinBtn.disabled = true;
-        statusText.innerText = "Đang quay...";
-        resultNumber.innerText = "??";
-        document.getElementById("resultPanel").classList.remove("winning");
-
-        // Tính toán kết quả
-        const targetNum = parseInt(urlParams.get("target"));
-        const winningNumber = !isNaN(targetNum) 
-            ? targetNum 
-            : Math.floor(Math.random() * (endNum - startNum + 1)) + startNum;
-
-        // Mỗi vòng quay là 360 độ. Quay ít nhất 5 vòng + góc ngẫu nhiên
-        const extraDegrees = Math.floor(Math.random() * 360);
-        const totalRotation = rotation + 360 * 5 + extraDegrees;
-        rotation = totalRotation;
-
-        wheel.style.transform = `rotate(${totalRotation}deg)`;
-
-        setTimeout(() => {
-          isSpinning = false;
-          spinBtn.disabled = false;
-          statusText.innerText = "Số trúng là:";
-          resultNumber.innerText = winningNumber;
-          document.getElementById("resultPanel").classList.add("winning");
-
-          // Cập nhật lịch sử
-          history.unshift(winningNumber);
-          if (history.length > 5) history.pop();
-          historyText.innerText = "Lịch sử: " + history.join(", ");
-
-          // Haptic feedback
-          if (tg.HapticFeedback) {
-            tg.HapticFeedback.notificationOccurred("success");
-          }
-
-          // Gửi dữ liệu về bot (nếu cần)
-          // Lưu ý: User phải nhấn nút "Gửi" hoặc bot xử lý thông qua Webhook
-          // Ở đây chúng ta chỉ preview hoặc dùng tg.sendData(winningNumber.toString())
-          // Lưu ý: sendData chỉ hoạt động trong KeyboardButton web_app, không phải Inline
-
-          // Nếu dùng InlineWebApp, chúng ta có thể show nút đóng
-          tg.MainButton.setText("XÁC NHẬN SỐ " + winningNumber);
-          tg.MainButton.show();
-          tg.MainButton.onClick(() => {
-            // Trong thực tế sẽ gửi về server hoặc đóng app
-            tg.close();
-          });
-        }, 5000);
-      });
-
-      // Initialize TG colors
-      if (tg.themeParams.button_color) {
-        document.documentElement.style.setProperty(
-          "--primary-color",
-          tg.themeParams.button_color,
-        );
-      }
-    </script>
-  </body>
+    <script src="js/main.js"></script>
+</body>
 </html>
