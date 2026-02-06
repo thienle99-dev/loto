@@ -51,12 +51,29 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Hiển thị kết quả
         drawn_numbers = [item.get("number") for item in session.history[-10:]]
         
-        message = f"🎯 *SỐ TRÚNG THƯỞNG: `{number}`*\n\n"
+        # Convert số sang Unicode bold để to hơn
+        def to_bold_digits(num):
+            """Convert số thành Unicode Mathematical Bold Digits"""
+            bold_map = {
+                '0': '𝟎', '1': '𝟏', '2': '𝟐', '3': '𝟑', '4': '𝟒',
+                '5': '𝟓', '6': '𝟔', '7': '𝟕', '8': '𝟖', '9': '𝟗'
+            }
+            return ''.join(bold_map.get(c, c) for c in str(num))
         
-        # Hiển thị lịch sử gần đây theo dọc
+        bold_number = to_bold_digits(number)
+        
+        # SỐ TRÚNG THƯỞNG nổi bật với số to
+        message = "🎊🎊🎊🎊🎊🎊🎊🎊🎊\n\n"
+        message += f"🎯 *SỐ TRÚNG THƯỞNG*\n\n"
+        message += f"╔═══════════════╗\n"
+        message += f"║      {bold_number}      ║\n"
+        message += f"╚═══════════════╝\n\n"
+        message += "🎊🎊🎊🎊🎊🎊🎊🎊🎊\n\n"
+        
+        # Hiển thị lịch sử gần đây theo dọc (mới nhất ở trên)
         if drawn_numbers:
             message += "📜 *Gần đây:*\n"
-            for num in drawn_numbers:
+            for num in reversed(drawn_numbers):
                 message += f"   • `{num}`\n"
             message += "\n"
         
