@@ -50,7 +50,7 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         suffix = f":{target_chat_id}"
 
         # Hiển thị kết quả
-        drawn_numbers = [item.get("number") for item in session.history[-10:]]
+        drawn_numbers = [item.get("number") for item in session.history[-5:]]
         
         # Convert số sang Unicode bold để to hơn
         def to_bold_digits(num):
