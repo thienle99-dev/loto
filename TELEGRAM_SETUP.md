@@ -61,7 +61,7 @@ Bot đã sẵn sàng!
    - `/moi Loto test` - Tạo game mới với khoảng mặc định `1 -> 90`
    - `/pham_vi 1 100` - Tạo game mới với khoảng số tuỳ chỉnh
    - `/bat_dau` - Host bấm để bắt đầu game
-   - `/tham_gia` - Người chơi tham gia game hiện tại
+   - `/lay_ve <mã_vé>` - Người chơi lấy vé để tham gia (ví dụ: `/lay_ve tim1`)
    - `/quay` - Quay số
    - `/kinh 1 5 10 20 30` - Kiểm tra vé
    - `/ket_thuc` - Kết thúc game hiện tại
@@ -94,10 +94,9 @@ Bot đã sẵn sàng!
 | `/moi <tên_game>` | Tạo game mới với dãy mặc định `1 -> 90` | `/moi Ván 1` |
 | `/pham_vi <x> <y>` | Tạo game mới với khoảng số tuỳ chỉnh | `/pham_vi 1 100` |
 | `/bat_dau` | Host bấm để bắt đầu game | `/bat_dau` |
-| `/tham_gia` | Người chơi tham gia game hiện tại | `/tham_gia` |
-| `/danh_sach` | Xem danh sách người chơi | `/danh_sach` |
-| `/lay_ve <mã_vé>` | Chọn/xem vé (mã màu) | `/lay_ve tim1` |
-| `/tra_ve` | Rời game nếu game chưa bắt đầu | `/tra_ve` |
+| `/lay_ve <mã_vé>` | Lấy vé để tham gia game (bắt buộc trước khi chơi) | `/lay_ve tim1` |
+| `/danh_sach` | Xem danh sách người đã lấy vé | `/danh_sach` |
+| `/tra_ve` | Trả vé và rời game nếu game chưa bắt đầu | `/tra_ve` |
 | `/quay` | Quay số | `/quay` |
 | `/kinh <dãy_số>` | Kiểm tra vé so với các số đã quay | `/kinh 1 5 10 20 30` |
 | `/lich_su` | Xem lịch sử quay của game hiện tại | `/lich_su` |
@@ -105,7 +104,7 @@ Bot đã sẵn sàng!
 | `/dat_lai` | Reset lại dãy số của game hiện tại | `/dat_lai` |
 | `/ket_thuc` | Kết thúc game hiện tại (chỉ host) | `/ket_thuc` |
 | `/ket_qua` | Xem kết quả game gần nhất trong chat | `/ket_qua` |
-| `/xep_hang` | Xem bảng xếp hạng trúng thưởng hoặc tham gia | `/xep_hang`, `/xep_hang join` |
+| `/xep_hang` | Xem bảng xếp hạng trúng thưởng hoặc người lấy vé | `/xep_hang`, `/xep_hang join` |
 | `/xoa` | Xoá session/game hiện tại trong chat | `/xoa` |
 | `/tro_giup` | Xem hướng dẫn chi tiết | `/tro_giup` |
 

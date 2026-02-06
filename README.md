@@ -112,15 +112,17 @@ Sau khi bot đã chạy (`python run_bot.py`), thêm bot vào group và sử d�
 > Mỗi chat chỉ có **1 game hoạt động** tại một thời điểm.  
 > Nếu đang có game, phải `/endsession` hoặc `/clear` trước khi tạo game mới.
 
-#### 2. Người chơi tham gia
+#### 2. Người chơi lấy vé (tham gia)
 
-- `/join`  
-  - Tham gia game hiện tại trong chat.
-- `/players`  
-  - Xem danh sách người chơi (host được đánh dấu ⭐).
-- `/out`  
-  - Rời game nếu game **chưa start**.  
-  - Sau khi `/startsession`, không thể dùng `/out` nữa (chốt danh sách người chơi).
+- `/lay_ve <mã_vé>` (tiếng Việt)  
+  - Lấy vé để tham gia game; **bắt buộc** trước khi chơi. Ví dụ: `/lay_ve tim1`.
+- `/join` (alias / flow cũ)  
+  - Bot nhắc dùng `/lay_ve <mã_vé>` để lấy vé và tham gia.
+- `/players` hoặc `/danh_sach`  
+  - Xem danh sách người đã lấy vé (host được đánh dấu ⭐).
+- `/out` hoặc `/tra_ve`  
+  - Trả vé và rời game nếu game **chưa start**.  
+  - Sau khi `/startsession`, không thể dùng `/tra_ve` nữa (chốt danh sách).
 
 #### 3. Quay số & kiểm tra vé
 
@@ -163,8 +165,8 @@ Sau khi bot đã chạy (`python run_bot.py`), thêm bot vào group và sử d�
 - `/leaderboard`  
   - Top người trúng thưởng nhiều nhất trong chat.
 
-- `/leaderboard join`  
-  - Top người tham gia nhiều game nhất trong chat.
+- `/leaderboard join` hoặc `/xep_hang join`  
+  - Top người lấy vé / tham gia nhiều game nhất trong chat.
 
 #### 5. Quản lý & tiện ích khác
 

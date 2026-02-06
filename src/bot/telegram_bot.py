@@ -287,7 +287,7 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [
             KeyboardButton("/moi"),
-            KeyboardButton("/tham_gia"),
+            KeyboardButton("/lay_ve"),
             KeyboardButton("/danh_sach"),
         ],
         [
@@ -319,9 +319,9 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• `/moi <tên_game>` \\- tạo game mới trong vòng / chat\n"
         "• `/pham_vi <x> <y>` \\- tạo game với khoảng số tuỳ chỉnh\n"
         "• `/bat_dau` \\- host bấm để *bắt đầu* game\n"
-        "• `/tham_gia` \\- tham gia game hiện tại\n"
-        "• `/danh_sach` \\- xem danh sách người chơi\n"
-        "• `/tra_ve` \\- rời khỏi game (người thường)\n\n"
+        "• `/lay_ve <mã_vé>` \\- lấy vé để tham gia game \\(bắt buộc trước khi chơi\\)\n"
+        "• `/danh_sach` \\- xem danh sách người đã lấy vé\n"
+        "• `/tra_ve` \\- trả vé và rời game (người thường)\n\n"
         "🎲 *Quay số & trạng thái*\n"
         "• `/quay` \\- quay số\n"
         "• `/kinh <dãy_số>` \\- kiểm tra vé, số đã/ chưa quay\n"
@@ -703,12 +703,8 @@ async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def join_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /tham_gia - cho phép người khác tham gia game hiện tại trong nhóm/chat"""
-    chat_id = update.effective_chat.id
-    user = update.effective_user
-    user_id = user.id
-    session = session_manager.get_session(chat_id)
-
+    """Handler cho lệnh /tham_gia - chuyển hướng sang lấy vé (mọi người phải lấy vé trước khi chơi)"""
+    session = session_manager.get_session(update.effective_chat.id)
     if not session:
         await update.message.reply_text(
             "❌ *Chưa có game nào đang chạy trong chat này\\!*\n\n"
@@ -716,20 +712,12 @@ async def join_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='Markdown'
         )
         return
-
-    display_name = user.full_name or (user.username or str(user_id))
-    is_new = session.add_participant(user_id=user_id, name=display_name)
-
-    game_name = getattr(session, "game_name", None)
-    if is_new:
-        text = f"✅ *{escape_markdown(display_name)}* đã tham gia game hiện tại."
-    else:
-        text = f"ℹ️ *{escape_markdown(display_name)}* đã ở trong danh sách người chơi."
-
-    if game_name:
-        text = f"{text}\n\n🕹️ Game: `{escape_markdown(game_name)}`"
-
-    await update.message.reply_text(text, parse_mode='Markdown')
+    await update.message.reply_text(
+        "🎟️ *Để chơi, bạn cần lấy vé trước\\!*\n\n"
+        "Dùng `/lay_ve <mã_vé>` để chọn vé và tham gia game\\. Ví dụ: `/lay_ve tim1`\n"
+        "Gõ `/lay_ve` không kèm mã để xem danh sách vé còn trống.",
+        parse_mode='Markdown'
+    )
 
 
 async def out_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -762,10 +750,20 @@ async def out_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Trả vé nếu đang giữ (giải phóng mã vé cho người khác)
+    user_tickets = getattr(session, "user_tickets", {})
+    tickets = getattr(session, "tickets", {})
+    code = user_tickets.pop(user_id, None)
+    if code is not None and code in tickets:
+        tickets.pop(code, None)
+        session_manager.persist_session(chat_id)
+
     removed = session.remove_participant(user_id)
     if removed:
+        session_manager.persist_session(chat_id)
+    if removed or code is not None:
         await update.message.reply_text(
-            "✅ Bạn đã rời khỏi game hiện tại.",
+            "✅ Bạn đã trả vé và rời khỏi game hiện tại.",
             parse_mode='Markdown'
         )
     else:
@@ -793,7 +791,7 @@ async def players_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not participants and owner_id is None:
         await update.message.reply_text(
-            "ℹ️ Hiện chưa có ai tham gia game.",
+            "ℹ️ Hiện chưa có ai lấy vé / tham gia game.",
             parse_mode='Markdown'
         )
         return
@@ -821,7 +819,7 @@ async def players_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.insert(0, "⭐ Chủ phòng (Host)")
         count += 1
 
-    header = "👥 *Danh sách người tham gia game:*\n\n"
+    header = "👥 *Danh sách người đã lấy vé (tham gia game):*\n\n"
     if game_name:
         header += f"🕹️ Game: `{escape_markdown(game_name)}`\n"
     header += f"📊 Tổng: `{count}` người\n\n"
@@ -978,7 +976,7 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     else:
         if not participations:
             await update.message.reply_text(
-                "ℹ️ Chưa có ai tham gia game trong chat này.",
+                "ℹ️ Chưa có ai lấy vé / tham gia game trong chat này.",
                 parse_mode='Markdown'
             )
             return
@@ -987,7 +985,7 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             key=lambda kv: kv[1].get("count", 0.0),
             reverse=True
         )[:10]
-        title = "👥 *Top người tham gia nhiều game nhất:*"
+        title = "👥 *Top người lấy vé / tham gia nhiều game nhất:*"
 
     lines = []
     for idx, (uid, info) in enumerate(sorted_items, start=1):
@@ -1145,6 +1143,16 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "⏱️ *Game chưa bắt đầu\\!* \n\n"
             "Host cần dùng lệnh `/bat_dau` để bắt đầu game trước khi kiểm tra vé.",
+            parse_mode='Markdown'
+        )
+        return
+
+    # Bắt buộc phải lấy vé trước khi chơi (kiểm tra vé)
+    user_tickets = getattr(session, "user_tickets", {})
+    if user.id not in user_tickets:
+        await update.message.reply_text(
+            "🎟️ *Bạn cần lấy vé trước khi chơi\\!*\n\n"
+            "Dùng `/lay_ve <mã_vé>` để lấy vé\\. Ví dụ: `/lay_ve tim1`",
             parse_mode='Markdown'
         )
         return
@@ -1443,14 +1451,32 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tickets[code] = user_id
     user_tickets[user_id] = code
 
+    # Lấy vé = tham gia game: thêm vào danh sách người chơi nếu chưa có
+    display_name = user.full_name or (user.username or str(user_id))
+    session.add_participant(user_id=user_id, name=display_name)
+
     # Lưu session sau khi đổi vé
     session_manager.persist_session(chat_id)
 
-    await update.message.reply_text(
-        f"✅ Bạn đã chọn vé: `{code}`\n\n"
-        "Nếu bạn gọi `/lay_ve <mã_vé_khác>` trước khi game bắt đầu, vé cũ sẽ được trả lại và thay bằng vé mới.",
-        parse_mode="Markdown",
+    # Hiển thị danh sách người đã lấy vé
+    participants = []
+    if hasattr(session, "get_participants"):
+        try:
+            participants = session.get_participants()
+        except Exception:
+            participants = []
+    name_by_id = {p.get("user_id"): (p.get("name") or str(p.get("user_id"))) for p in participants if p.get("user_id") is not None}
+    people_lines = [f"- {escape_markdown(name_by_id.get(uid, str(uid)))}: `{c}`" for uid, c in user_tickets.items()]
+    list_text = "👥 *Danh sách người đã lấy vé:*\n" + "\n".join(people_lines) if people_lines else ""
+
+    success_msg = (
+        f"✅ Bạn đã lấy vé: `{code}` và tham gia game.\n\n"
+        "Nếu bạn gọi `/lay_ve <mã_vé_khác>` trước khi game bắt đầu, vé cũ sẽ được trả lại và thay bằng vé mới."
     )
+    if list_text:
+        success_msg += "\n\n" + list_text
+
+    await update.message.reply_text(success_msg, parse_mode="Markdown")
 
     # Gửi ảnh vé tương ứng nếu có file
     image_path = TICKET_IMAGES.get(code)

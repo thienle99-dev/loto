@@ -29,11 +29,10 @@ Bot hỗ trợ chơi loto / quay số trong nhóm chat với nhiều tiện ích
 3️⃣ Host bắt đầu game  
    • `/bat_dau` \- sau khi đã tạo game
 
-4️⃣ Người chơi tham gia, xem danh sách, chọn vé  
-   • `/tham_gia` \- tham gia game hiện tại  
-   • `/danh_sach` \- xem danh sách người chơi  
-   • `/lay_ve <mã_vé>` \- chọn / xem vé (mã màu) nếu bạn dùng tính năng vé  
-   • `/tra_ve` \- rời game nếu *chưa* start  
+4️⃣ Người chơi lấy vé (bắt buộc), xem danh sách  
+   • `/lay_ve <mã_vé>` \- lấy vé để tham gia game \\(bắt buộc trước khi chơi\\)  
+   • `/danh_sach` \- xem danh sách người đã lấy vé  
+   • `/tra_ve` \- trả vé và rời game nếu *chưa* start  
 
 5️⃣ Quay số & kiểm tra vé  
    • Host: `/quay` \- quay số (chỉ sau khi `/bat_dau`)  
@@ -65,11 +64,10 @@ HELP_MESSAGE = """
    • Hoặc: `/pham_vi 1 90` \- tự chọn khoảng số cho game  
    • `/bat_dau` \- host bấm để *bắt đầu* game (sau đó mới được `/quay` và `/kinh`)
 
-2️⃣ *Người chơi tham gia game*
-   • `/tham_gia` \- tham gia game hiện tại trong chat  
-   • `/danh_sach` \- xem danh sách người đang tham gia  
-   • `/lay_ve <mã_vé>` \- chọn / xem vé (mã màu) nếu bạn dùng tính năng vé  
-   • `/tra_ve` \- rời game nếu game *chưa start*  
+2️⃣ *Người chơi lấy vé và tham gia game*
+   • `/lay_ve <mã_vé>` \- lấy vé để tham gia \\(bắt buộc trước khi chơi\\)  
+   • `/danh_sach` \- xem danh sách người đã lấy vé  
+   • `/tra_ve` \- trả vé và rời game nếu game *chưa start*  
 
 3️⃣ *Quay số & kiểm tra vé*
    • `/quay` \- quay số (chỉ khi game đã `/bat_dau`)  
@@ -83,7 +81,7 @@ HELP_MESSAGE = """
    • `/ket_thuc` \- chỉ host (người tạo game) mới được phép kết thúc game  
    • `/ket_qua` \- xem lại kết quả game gần nhất trong chat: tên game, host, số đã quay, danh sách người trúng  
    • `/xep_hang` \- top người trúng thưởng nhiều nhất  
-   • `/xep_hang join` \- top người tham gia nhiều game nhất
+   • `/xep_hang join` \- top người lấy vé / tham gia nhiều game nhất
 
 5️⃣ *Quản lý & tiện ích khác*
    • `/dat_lai` \- reset dãy số của game hiện tại về ban đầu  
@@ -95,6 +93,6 @@ HELP_MESSAGE = """
 `/vong_moi Loto tối nay`  
 `/moi Ván 1`  
 `/bat_dau`  
-Mọi người: `/tham_gia` → host: `/quay` vài lần → mọi người: `/kinh 1 5 10 20 30`  
+Mọi người: `/lay_ve tim1` (hoặc mã vé khác) → host: `/quay` vài lần → mọi người: `/kinh 1 5 10 20 30`  
 Kết thúc: `/ket_thuc` → xem lại: `/ket_qua` → xem top: `/xep_hang`
 """
