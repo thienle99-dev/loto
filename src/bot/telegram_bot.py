@@ -64,7 +64,7 @@ from src.bot.handlers.spin import (
 )
 
 # Import leaderboard handler
-from src.bot.handlers.leaderboard import leaderboard_command, leaderboard_round_command, show_user_token_command, reset_token_command
+from src.bot.handlers.leaderboard import leaderboard_command, leaderboard_round_command, show_user_token_command, reset_token_command, xoa_token_command
 
 # Import wait handler
 from src.bot.handlers.wait import wait_command
@@ -118,6 +118,8 @@ def setup_bot(token: str) -> Application:
             ("ket_thuc", "Kết thúc game"),
             ("tong_ket", "Tổng kết game"),
             ("xem_token", "Xem token cá nhân"),
+            ("xoa_token", "Xóa token 1 người"),
+            ("clear_token", "Xóa sạch Token cả nhóm"),
             ("reset_token", "Reset Token về 0"),
             ("xep_hang_vong", "BXH vòng hiện tại"),
             ("xep_hang", "BXH tổng"),
@@ -159,6 +161,8 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("ket_qua", lastresult_command))
     application.add_handler(CommandHandler("tong_ket", summary_command))
     application.add_handler(CommandHandler("xem_token", show_user_token_command))
+    application.add_handler(CommandHandler("xoa_token", xoa_token_command))
+    application.add_handler(CommandHandler("clear_token", reset_token_command))
     application.add_handler(CommandHandler("reset_token", reset_token_command))
     application.add_handler(CommandHandler("xep_hang_vong", leaderboard_round_command))
     application.add_handler(CommandHandler("xep_hang", leaderboard_command))

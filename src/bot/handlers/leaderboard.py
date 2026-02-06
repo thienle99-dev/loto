@@ -193,3 +193,71 @@ async def reset_token_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         "✨ *Đã đặt lại toàn bộ Token về 0\\!*",
         parse_mode='Markdown'
     )
+
+async def xoa_token_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /xoa_token @mention - Đặt lại token của một người về 0"""
+    chat_id = update.effective_chat.id
+    
+    target_user_id = None
+    target_name = None
+    
+    # 1. Kiểm tra reply
+    if update.message.reply_to_message:
+        target_user = update.message.reply_to_message.from_user
+        target_user_id = target_user.id
+        target_name = target_user.full_name
+    # 2. Kiểm tra mention
+    elif context.args:
+        # Thử tìm trong các thực thể tin nhắn (mentions)
+        mentions = update.message.parse_entities(["mention", "text_mention"])
+        if mentions:
+            # Lấy mention đầu tiên
+            entity, text = next(iter(mentions.items()))
+            if entity.type == "text_mention":
+                target_user_id = entity.user.id
+                target_name = entity.user.full_name
+            else:
+                # mention thường chỉ có username (@abc), cần tìm trong stats
+                username = text.lstrip('@')
+                chat_stats = get_chat_stats(chat_id)
+                wins = chat_stats.get("wins", {})
+                for uid, info in wins.items():
+                    if info.get("username") == username:
+                        target_user_id = uid
+                        target_name = info.get("name")
+                        break
+        # Nếu không có mention nhưng có args, có thể là user_id
+        if not target_user_id:
+            try:
+                target_user_id = int(context.args[0])
+            except ValueError:
+                pass
+
+    if not target_user_id:
+        await update.message.reply_text(
+            "⚠️ *Thiếu mục tiêu\\!*\n\n"
+            "Sử dụng: `/xoa_token @mention` hoặc *trả lời (reply)* tin nhắn của người đó.",
+            parse_mode='Markdown'
+        )
+        return
+
+    chat_stats = get_chat_stats(chat_id)
+    wins = chat_stats.get("wins", {})
+    
+    if str(target_user_id) in wins or target_user_id in wins:
+        # Xóa khỏi bảng xếp hạng tổng
+        if str(target_user_id) in wins:
+            del wins[str(target_user_id)]
+        if target_user_id in wins:
+            del wins[target_user_id]
+            
+        save_stats(chat_id, chat_stats)
+        await update.message.reply_text(
+            f"✅ Đã đặt lại Token của {escape_markdown(target_name or str(target_user_id))} về `0.0`.",
+            parse_mode='Markdown'
+        )
+    else:
+        await update.message.reply_text(
+            f"👤 {escape_markdown(target_name or str(target_user_id))} hiện chưa có dữ liệu token.",
+            parse_mode='Markdown'
+        )

@@ -63,6 +63,14 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 1. Gửi TOÀN BỘ chuỗi digit emoji trong 1 tin nhắn để hiện to (Big Emoji)
         str_num = str(number)
         full_emoji_str = "".join(get_emoji_digit(d) for d in str_num)
+        
+        # Xoá bảng điều khiển cũ nếu có để "nhảy" xuống dưới
+        if getattr(session, 'last_control_message_id', None):
+            try:
+                await context.bot.delete_message(chat_id=chat_id, message_id=session.last_control_message_id)
+            except Exception:
+                pass # Bỏ qua nếu tin nhắn quá cũ hoặc đã bị xoá
+
         await context.bot.send_message(chat_id=chat_id, text=full_emoji_str)
         
         # 2. Phần thống kê và nút bấm (Header + Gần đây)
@@ -108,7 +116,9 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
 
         # Gửi message thống kê và nút điều khiển
-        await context.bot.send_message(chat_id=chat_id, text=stats_msg, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+        sent_msg = await context.bot.send_message(chat_id=chat_id, text=stats_msg, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+        session.last_control_message_id = sent_msg.message_id
+        
         session_manager.persist_session(chat_id)
     except ValueError as e:
         await update.message.reply_text(f"❌ {str(e)}")
@@ -151,8 +161,16 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_chat_id = chat_id
     suffix = f":{target_chat_id}"
 
-    await update.message.reply_text(
-        msg, 
+    # Xoá bảng điều khiển cũ nếu có
+    if getattr(session, 'last_control_message_id', None):
+        try:
+            await context.bot.delete_message(chat_id=chat_id, message_id=session.last_control_message_id)
+        except Exception:
+            pass
+
+    sent_msg = await context.bot.send_message(
+        chat_id=chat_id,
+        text=msg, 
         parse_mode='Markdown',
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🎲 Quay số", callback_data=f"cmd:quay{suffix}"),
@@ -161,6 +179,8 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
              InlineKeyboardButton("🕹️ Game mới", callback_data=f"cmd:moi_input{suffix}")]
         ])
     )
+    session.last_control_message_id = sent_msg.message_id
+    session_manager.persist_session(chat_id)
 
 async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /lich_su"""

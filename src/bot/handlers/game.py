@@ -425,13 +425,15 @@ async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYP
     target_chat_id = chat_id
     suffix = f":{target_chat_id}"
 
-    await update.message.reply_text(
+    sent_msg = await update.message.reply_text(
         text, 
         parse_mode='Markdown',
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🎲 Quay số đầu tiên", callback_data=f"cmd:quay{suffix}")]
         ])
     )
+    session.last_control_message_id = sent_msg.message_id
+    session_manager.persist_session(chat_id)
 
 async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /ket_thuc"""

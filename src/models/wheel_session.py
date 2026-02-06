@@ -66,6 +66,8 @@ class WheelSession:
         self.user_tickets: dict[int, str] = {}
         # Danh sách người đợi số: {number: [(user_id, name), ...]}
         self.waiting_numbers: dict[int, list[tuple[int, str]]] = {}
+        # ID tin nhắn bảng điều khiển cuối cùng để có thể xoá và đẩy xuống dưới
+        self.last_control_message_id: Optional[int] = None
         
         # Tạo danh sách số ban đầu
         self.available_numbers = list(range(start_number, end_number + 1))
@@ -114,6 +116,7 @@ class WheelSession:
             'tickets': self.tickets,
             'user_tickets': self.user_tickets,
             'waiting_numbers': {str(k): v for k, v in self.waiting_numbers.items()},
+            'last_control_message_id': self.last_control_message_id,
         }
     
     @classmethod
@@ -150,6 +153,8 @@ class WheelSession:
                 session.waiting_numbers[int(k)] = v
             except ValueError:
                 pass
+        
+        session.last_control_message_id = data.get('last_control_message_id')
                 
         return session
 
