@@ -57,12 +57,16 @@ Bot đã sẵn sàng!
 
 1. Mở Telegram và tìm bot của bạn (theo username đã đặt)
 2. Gửi lệnh `/start` để bắt đầu
-3. Thử các lệnh:
-   - `/setrange 1 100` - Tạo danh sách từ 1 đến 100
-   - `/spin` - Quay wheel
-   - `/status` - Xem trạng thái
-   - `/reset` - Reset danh sách
-   - `/help` - Xem hướng dẫn
+3. Thử các lệnh (theo bộ lệnh tiếng Việt mới):
+   - `/moi Loto test` - Tạo game mới với khoảng mặc định `1 -> 90`
+   - `/pham_vi 1 100` - Tạo game mới với khoảng số tuỳ chỉnh
+   - `/bat_dau` - Host bấm để bắt đầu game
+   - `/tham_gia` - Người chơi tham gia game hiện tại
+   - `/quay` - Quay số
+   - `/kinh 1 5 10 20 30` - Kiểm tra vé
+   - `/ket_thuc` - Kết thúc game hiện tại
+   - `/ket_qua` - Xem lại kết quả game gần nhất
+   - `/xep_hang` - Xem bảng xếp hạng
 
 ## Troubleshooting
 
@@ -84,14 +88,26 @@ Bot đã sẵn sàng!
 
 | Lệnh | Mô tả | Ví dụ |
 |------|-------|-------|
-| `/start` | Bắt đầu bot | `/start` |
-| `/setrange <x> <y>` | Thiết lập khoảng số | `/setrange 1 100` |
-| `/spin` | Quay wheel | `/spin` |
-| `/toggle_remove` | Bật/tắt loại bỏ số | `/toggle_remove` |
-| `/reset` | Reset danh sách | `/reset` |
-| `/status` | Xem trạng thái | `/status` |
-| `/clear` | Xóa session | `/clear` |
-| `/help` | Hướng dẫn | `/help` |
+| `/start` | Bắt đầu bot, hiện welcome message | `/start` |
+| `/menu` | Mở bàn phím nhanh các lệnh chính | `/menu` |
+| `/vong_moi <tên_vòng>` | Tạo vòng chơi mới trong chat | `/vong_moi Loto tối nay` |
+| `/moi <tên_game>` | Tạo game mới với dãy mặc định `1 -> 90` | `/moi Ván 1` |
+| `/pham_vi <x> <y>` | Tạo game mới với khoảng số tuỳ chỉnh | `/pham_vi 1 100` |
+| `/bat_dau` | Host bấm để bắt đầu game | `/bat_dau` |
+| `/tham_gia` | Người chơi tham gia game hiện tại | `/tham_gia` |
+| `/danh_sach` | Xem danh sách người chơi | `/danh_sach` |
+| `/lay_ve <mã_vé>` | Chọn/xem vé (mã màu) | `/lay_ve tim1` |
+| `/tra_ve` | Rời game nếu game chưa bắt đầu | `/tra_ve` |
+| `/quay` | Quay số | `/quay` |
+| `/kinh <dãy_số>` | Kiểm tra vé so với các số đã quay | `/kinh 1 5 10 20 30` |
+| `/lich_su` | Xem lịch sử quay của game hiện tại | `/lich_su` |
+| `/trang_thai` | Xem trạng thái game hiện tại | `/trang_thai` |
+| `/dat_lai` | Reset lại dãy số của game hiện tại | `/dat_lai` |
+| `/ket_thuc` | Kết thúc game hiện tại (chỉ host) | `/ket_thuc` |
+| `/ket_qua` | Xem kết quả game gần nhất trong chat | `/ket_qua` |
+| `/xep_hang` | Xem bảng xếp hạng trúng thưởng hoặc tham gia | `/xep_hang`, `/xep_hang join` |
+| `/xoa` | Xoá session/game hiện tại trong chat | `/xoa` |
+| `/tro_giup` | Xem hướng dẫn chi tiết | `/tro_giup` |
 
 ## Lưu Ý
 

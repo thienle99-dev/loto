@@ -55,7 +55,7 @@ class WheelSession:
         self.round_name = round_name
         # Danh sách người tham gia game: [{user_id, name}, ...]
         self.participants: list[dict] = []
-        # Trạng thái game đã bắt đầu hay chưa (host dùng /startsession)
+        # Trạng thái game đã bắt đầu hay chưa (host dùng /bat_dau)
         self.started: bool = False
         # Danh sách người trúng thưởng trong game hiện tại
         # [{'user_id': int, 'name': str, 'numbers': list[int], 'time': str}, ...]

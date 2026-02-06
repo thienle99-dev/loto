@@ -179,6 +179,17 @@ async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Kiểm tra nếu đã có vòng đang hoạt động
+    if chat_id in active_rounds:
+        current_round = active_rounds[chat_id].get("round_name", "Không tên")
+        await update.message.reply_text(
+            f"⚠️ *Đang có vòng chơi hoạt động\\!*\n\n"
+            f"Vòng: `{escape_markdown(current_round)}`\n"
+            f"Vui lòng dùng `/ket_thuc_vong` để kết thúc vòng cũ trước khi tạo vòng mới\\.",
+            parse_mode="Markdown",
+        )
+        return
+
     # Nếu đang có vòng cũ, ghi đè bằng vòng mới
     active_rounds[chat_id] = {
         "round_name": round_name,
@@ -191,8 +202,33 @@ async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🔄 Tên vòng: `{escape_markdown(round_name)}`\n\n"
         "Giờ bạn có thể dùng:\n"
         "• `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo các game trong vòng này.\n"
-        "• `/ket_thuc` để kết thúc từng game.",
+        "• `/ket_thuc` để kết thúc từng game.\n"
+        "• `/ket_thuc_vong` để kết thúc vòng chơi.",
         parse_mode="Markdown",
+    )
+
+
+async def endround_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /ket_thuc_vong - kết thúc vòng chơi hiện tại"""
+    chat_id = update.effective_chat.id
+    
+    if chat_id not in active_rounds:
+         await update.message.reply_text(
+            "ℹ️ Hiện không có vòng chơi nào đang hoạt động.",
+            parse_mode='Markdown'
+        )
+         return
+
+    round_info = active_rounds[chat_id]
+    round_name = round_info.get("round_name", "Không tên")
+    
+    # Xoá vòng chơi khỏi active_rounds
+    del active_rounds[chat_id]
+    
+    await update.message.reply_text(
+        f"🛑 Đã kết thúc vòng chơi *{escape_markdown(round_name)}*\\.\n\n"
+        "Giờ bạn có thể tạo vòng mới bằng `/vong_moi <tên_vòng>`\\.",
+        parse_mode='Markdown'
     )
 
 
@@ -377,9 +413,8 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
             f"📊 Khoảng số: `1 -> {MAX_NUMBERS}`\n"
             f"📊 Tổng số: `{session.get_total_numbers()}`\n"
             f"⚙️ Loại bỏ sau khi quay: `{'Có' if session.remove_after_spin else 'Không'}`\n\n"
-            f"Người chơi dùng /lay_ve <mã_vé> để chọn vé và /tra_ve để rời game\\."
-            f"Host gửi `/bat_dau` để bắt đầu game \n" 
-            f"sau đó dùng `/quay` để quay và `/kinh <danh_sách_số>` để kiểm tra vé\\.",
+            "Người chơi dùng `/lay_ve ma_ve` để chọn vé và `/tra_ve` để rời game.\n"
+            "Host gửi `/bat_dau` để bắt đầu game, sau đó dùng `/quay` để quay và `/kinh danh_sach_so` để kiểm tra vé.",
             parse_mode='Markdown'
         )
     except ValueError as e:
@@ -1345,6 +1380,29 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             header += f"🧾 Vé hiện tại của bạn: `{current}`\n\n"
         else:
             header += "🧾 Bạn chưa chọn vé nào\\.\n\n"
+        
+        # Danh sách người đã lấy vé (user_id -> mã vé)
+        people_lines: list[str] = []
+        # Cố gắng lấy tên người chơi từ danh sách participants nếu có
+        participants = []
+        if hasattr(session, "get_participants"):
+            try:
+                participants = session.get_participants()
+            except Exception:
+                participants = []
+        name_by_id: dict[int, str] = {}
+        for p in participants:
+            uid = p.get("user_id")
+            name = p.get("name") or str(uid)
+            if uid is not None:
+                name_by_id[uid] = name
+
+        for uid, code in user_tickets.items():
+            display_name = name_by_id.get(uid, str(uid))
+            people_lines.append(f"- {escape_markdown(display_name)}: `{code}`")
+
+        if people_lines:
+            header += "👥 *Danh sách người đã lấy vé:*\n" + "\n".join(people_lines) + "\n\n"
 
         header += "Dùng `/lay_ve <mã_vé>` để chọn hoặc đổi vé\\. Ví dụ: `/lay_ve tim1`"
         await update.message.reply_text(
@@ -1419,6 +1477,7 @@ def setup_bot(token: str) -> Application:
 
     # Chỉ dùng các lệnh tiếng Việt thân thuộc cho game
     application.add_handler(CommandHandler("vong_moi", vongmoi_command))
+    application.add_handler(CommandHandler("ket_thuc_vong", endround_command))
     application.add_handler(CommandHandler("moi", newsession_command))
     application.add_handler(CommandHandler("pham_vi", setrange_command))
     application.add_handler(CommandHandler("bat_dau", startsession_command))
