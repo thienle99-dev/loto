@@ -2,6 +2,8 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from src.bot.utils import escape_markdown, get_chat_stats
 from src.bot.constants import round_history, active_rounds
+import logging
+
 
 logger = logging.getLogger(__name__)
 
