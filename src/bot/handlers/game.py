@@ -452,8 +452,12 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     game_name = getattr(session, "game_name", None)
     chat_stats = get_chat_stats(chat_id)
 
+    # Đếm số lần tham gia
     participations = chat_stats["participations"]
-    for p in session.get_participants():
+    participants = session.get_participants()
+    total_players = len(participants)
+    
+    for p in participants:
         uid = p.get("user_id")
         if uid is None: continue
         name = p.get("name") or str(uid)
@@ -462,15 +466,33 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         info["name"] = name
         participations[uid] = info
 
+    # Tính điểm token theo công thức mới
     wins = chat_stats["wins"]
     unique_winners = {w.get("user_id"): w.get("name") or str(w.get("user_id")) 
                       for w in getattr(session, "winners", []) if w.get("user_id") is not None}
 
-    if unique_winners:
-        share = 1.0 / len(unique_winners)
-        for uid, name in unique_winners.items():
+    if total_players > 0:
+        num_winners = len(unique_winners)
+        
+        if num_winners > 0:
+            # Người thắng: token += (total_players / num_winners) - 1
+            token_per_winner = (total_players / num_winners) - 1
+            
+            for uid, name in unique_winners.items():
+                info = wins.get(uid, {"count": 0.0, "name": name})
+                info["count"] += token_per_winner
+                info["name"] = name
+                wins[uid] = info
+        
+        # Người thua: token -= 1
+        loser_ids = [p.get("user_id") for p in participants 
+                     if p.get("user_id") is not None and p.get("user_id") not in unique_winners]
+        
+        for uid in loser_ids:
+            p_info = next((p for p in participants if p.get("user_id") == uid), None)
+            name = p_info.get("name") if p_info else str(uid)
             info = wins.get(uid, {"count": 0.0, "name": name})
-            info["count"] += share
+            info["count"] -= 1.0
             info["name"] = name
             wins[uid] = info
 
