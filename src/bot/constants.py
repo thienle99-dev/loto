@@ -9,7 +9,7 @@ MAX_NUMBERS = 90
 DEFAULT_REMOVE_AFTER_SPIN = True
 
 # Cooldown chống spam
-COOLDOWN_SPIN_SECONDS = 2
+COOLDOWN_SPIN_SECONDS = 0.5  # Giảm từ 2s xuống 0.5s để tăng tốc
 COOLDOWN_CHECK_SECONDS = 2
 COOLDOWN_GENERAL_SECONDS = 1  # Rate limit cho các lệnh thông thường
 

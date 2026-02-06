@@ -1,8 +1,7 @@
 import logging
 from datetime import datetime
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from config.config import WEB_APP_URL
 from src.bot.constants import COOLDOWN_SPIN_SECONDS, COOLDOWN_CHECK_SECONDS, last_results
 from src.bot.utils import (
     escape_markdown, session_manager, ensure_active_session, 
@@ -47,32 +46,14 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     try:
-        # 1. Phát sinh số thật trước
+        # Phát sinh số và hiển thị kết quả ngay
         number = spin_wheel(session)
         last_spin_time[chat_id] = now
         
         target_chat_id = chat_id
         suffix = f":{target_chat_id}"
-        
-        # 2. Tạo hiệu ứng "Đang quay"
-        # Gửi tin nhắn ban đầu
-        loading_msg = await update.message.reply_text("🥁 *Đang kết nối máy quay số...*", parse_mode='Markdown')
-        
-        import asyncio
-        import random
-        
-        # Giả lập vòng quay với các số ngẫu nhiên
-        animation_frames = ["🎰", "🎲", "🎯", "✨", "🌀"]
-        for i in range(3):
-            fake_num = random.randint(session.start_number, session.end_number)
-            frame = animation_frames[i % len(animation_frames)]
-            await loading_msg.edit_text(
-                f"{frame} *Đang quay:* ` {fake_num} `", 
-                parse_mode='Markdown'
-            )
-            await asyncio.sleep(0.4)
 
-        # 3. Hiển thị kết quả thật
+        # Hiển thị kết quả
         drawn_numbers = [item.get("number") for item in session.history[-10:]]
         history_str = " -> ".join(f"`{n}`" for n in drawn_numbers)
         
@@ -84,10 +65,6 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🎲 Quay tiếp", callback_data=f"cmd:quay{suffix}"),
              InlineKeyboardButton("📜 Các số đã ra", callback_data=f"cmd:trang_thai{suffix}")]
         ]
-        
-        # Chỉ hiển thị nút Web App nếu URL là HTTPS (Telegram bắt buộc)
-        if WEB_APP_URL and WEB_APP_URL.startswith("https"):
-             keyboard.append([InlineKeyboardButton("🎡 Xem lại (Animation)", web_app=WebAppInfo(url=f"{WEB_APP_URL}?start={session.start_number}&end={session.end_number}&target={number}"))])
         if session.is_empty():
             message += "\n\n⚠️ Danh sách đã hết\\! Sử dụng `/reset` để làm mới\\."
             keyboard = [[InlineKeyboardButton("🔄 Reset số", callback_data=f"cmd:dat_lai{suffix}")]]
@@ -98,8 +75,8 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("🕹️ Game mới", callback_data=f"cmd:moi_input{suffix}")
         ])
 
-        # Edit tin nhắn loading thành tin nhắn kết quả
-        await loading_msg.edit_text(message, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+        # Gửi kết quả ngay lập tức
+        await update.message.reply_text(message, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
         session_manager.persist_session(chat_id)
     except ValueError as e:
         await update.message.reply_text(f"❌ {str(e)}")

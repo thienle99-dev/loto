@@ -4,7 +4,7 @@ Telegram bot handlers và commands
 import logging
 import sys
 from pathlib import Path
-from telegram import Update, MenuButtonWebApp, WebAppInfo
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -13,7 +13,6 @@ from telegram.ext import (
     filters,
     ContextTypes
 )
-from config.config import WEB_APP_URL
 
 # Thêm thư mục gốc vào PYTHONPATH nếu chưa có
 root_dir = Path(__file__).parent.parent.parent
@@ -107,15 +106,6 @@ def setup_bot(token: str) -> Application:
             ("ket_thuc", "Kết thúc game"),
             ("tro_giup", "Trợ giúp")
         ])
-        
-        # Thiết lập Menu Button Web App
-        if WEB_APP_URL:
-            try:
-                await application.bot.set_chat_menu_button(
-                    menu_button=MenuButtonWebApp(text="🎮 Open Loto UI", web_app=WebAppInfo(url=WEB_APP_URL))
-                )
-            except Exception as e:
-                logger.warning(f"⚠️ Không thể thiết lập Menu Web App (có thể do URL không phải HTTPS): {e}")
 
     application = Application.builder().token(token).post_init(post_init).build()
     
