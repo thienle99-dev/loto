@@ -59,10 +59,12 @@ from src.bot.handlers.spin import (
     history_command,
     clear_command,
     lastresult_command,
-    leaderboard_command,
     check_command,
     xoakinh_command
 )
+
+# Import leaderboard handler
+from src.bot.handlers.leaderboard import leaderboard_command
 
 # Setup logging
 logging.basicConfig(

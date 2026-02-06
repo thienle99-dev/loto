@@ -473,10 +473,12 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if total_players > 0:
         num_winners = len(unique_winners)
+        bet_amount = 5.0  # Mức cược mỗi ván
         
         if num_winners > 0:
-            # Người thắng: token += (total_players / num_winners) - 1
-            token_per_winner = (total_players / num_winners) - 1
+            # Người thắng: nhận phần tiền của người thua
+            # Công thức zero-sum: (Tổng người chơi * cược / Số người thắng) - cược
+            token_per_winner = (total_players * bet_amount / num_winners) - bet_amount
             
             for uid, name in unique_winners.items():
                 info = wins.get(uid, {"count": 0.0, "name": name})
@@ -484,7 +486,7 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 info["name"] = name
                 wins[uid] = info
         
-        # Người thua: token -= 1
+        # Người thua: mất cược
         loser_ids = [p.get("user_id") for p in participants 
                      if p.get("user_id") is not None and p.get("user_id") not in unique_winners]
         
@@ -492,7 +494,7 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
             p_info = next((p for p in participants if p.get("user_id") == uid), None)
             name = p_info.get("name") if p_info else str(uid)
             info = wins.get(uid, {"count": 0.0, "name": name})
-            info["count"] -= 1.0
+            info["count"] -= bet_amount
             info["name"] = name
             wins[uid] = info
 
