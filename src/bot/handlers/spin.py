@@ -76,7 +76,7 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         drawn_numbers = [item.get("number") for item in session.history[-10:]]
         history_str = " -> ".join(f"`{n}`" for n in drawn_numbers)
         
-        message = f"� *SỐ TRÚNG THƯỞNG: `{number}`*\n\n"
+        message = f"🎯 *SỐ TRÚNG THƯỞNG: `{number}`*\n\n"
         message += f"📜 Gần đây: {history_str}\n"
         message += f"📊 Còn lại: `{session.get_remaining_count()}/{session.get_total_numbers()}`"
         
@@ -352,7 +352,7 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if matched: lines.append(f"✅ *Số đã quay*: " + ", ".join(f"`{n}`" for n in sorted(set(matched))))
     if not_drawn: lines.append(f"⭕ *Số chưa quay*: " + ", ".join(f"`{n}`" for n in sorted(set(not_drawn))))
     if invalid: lines.append(f"⚠️ *Không hợp lệ*: " + ", ".join(f"`{n}`" for n in sorted(set(invalid))))
-
+    
     if is_winner:
         display_name = user.full_name or str(user.id)
         winner_set = sorted(set(matched))
