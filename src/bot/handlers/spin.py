@@ -82,9 +82,12 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         keyboard = [
             [InlineKeyboardButton("🎲 Quay tiếp", callback_data=f"cmd:quay{suffix}"),
-             InlineKeyboardButton("📜 Các số đã ra", callback_data=f"cmd:trang_thai{suffix}")],
-            [InlineKeyboardButton("🎡 Xem lại (Animation)", web_app=WebAppInfo(url=f"{WEB_APP_URL}?start={session.start_number}&end={session.end_number}&target={number}"))]
+             InlineKeyboardButton("📜 Các số đã ra", callback_data=f"cmd:trang_thai{suffix}")]
         ]
+        
+        # Chỉ hiển thị nút Web App nếu URL là HTTPS (Telegram bắt buộc)
+        if WEB_APP_URL.startswith("https"):
+             keyboard.append([InlineKeyboardButton("🎡 Xem lại (Animation)", web_app=WebAppInfo(url=f"{WEB_APP_URL}?start={session.start_number}&end={session.end_number}&target={number}"))])
         if session.is_empty():
             message += "\n\n⚠️ Danh sách đã hết\\! Sử dụng `/reset` để làm mới\\."
             keyboard = [[InlineKeyboardButton("🔄 Reset số", callback_data=f"cmd:dat_lai{suffix}")]]
