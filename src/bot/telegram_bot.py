@@ -66,6 +66,9 @@ from src.bot.handlers.spin import (
 # Import leaderboard handler
 from src.bot.handlers.leaderboard import leaderboard_command
 
+# Import wait handler
+from src.bot.handlers.wait import wait_command
+
 # Setup logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -110,6 +113,7 @@ def setup_bot(token: str) -> Application:
             ("trang_thai", "Trạng thái"),
             ("ket_thuc", "Kết thúc game"),
             ("tong_ket", "Tổng kết game"),
+            ("doi", "Đợi số"),
             ("tro_giup", "Trợ giúp")
         ])
 
@@ -147,6 +151,7 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("ket_qua", lastresult_command))
     application.add_handler(CommandHandler("tong_ket", summary_command))
     application.add_handler(CommandHandler("xep_hang", leaderboard_command))
+    application.add_handler(CommandHandler("doi", wait_command))
     application.add_handler(CommandHandler("tro_giup", help_command))
 
     # Glue handlers

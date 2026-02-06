@@ -1,8 +1,9 @@
+import random
 import logging
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from src.bot.constants import COOLDOWN_SPIN_SECONDS, COOLDOWN_CHECK_SECONDS, last_results
+from src.bot.constants import COOLDOWN_SPIN_SECONDS, COOLDOWN_CHECK_SECONDS, last_results, WAITING_RESPONSES
 from src.bot.utils import (
     escape_markdown, session_manager, ensure_active_session, 
     get_chat_stats, get_last_result_for_chat
@@ -76,6 +77,20 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             for num in reversed(drawn_numbers):
                 message += f"   • `{num}`\n"
             message += "\n"
+        
+        # Kiểm tra và tag người đang đợi số này
+        if hasattr(session, 'waiting_numbers') and number in session.waiting_numbers:
+            waiters = session.waiting_numbers.pop(number) # Lấy và xóa luôn để không báo lại
+            if waiters:
+                mentions = []
+                for uid, name in waiters:
+                    mentions.append(f"[{escape_markdown(name)}](tg://user?id={uid})")
+                
+                mentions_str = ", ".join(mentions)
+                response_template = random.choice(WAITING_RESPONSES)
+                # Format: "Á đù, số **23** về rồi kìa! [User] đâu ra nhận hàng!"
+                response = response_template.format(number=number, mentions=mentions_str)
+                message += f"{response}\n\n"
         
         message += f"📊 Còn lại: `{session.get_remaining_count()}/{session.get_total_numbers()}`"
         

@@ -58,6 +58,26 @@ TICKET_IMAGES: dict[str, Path] = {
 }
 
 # Map mã vé -> tên hiển thị (tiếng Việt)
+TICKET_NAMES = {
+    "cam1": "Cam 1", "cam2": "Cam 2",
+    "do1": "Đỏ 1", "do2": "Đỏ 2",
+    "duong1": "Dương 1", "duong2": "Dương 2",
+    "hong1": "Hồng 1", "hong2": "Hồng 2",
+    "luc1": "Lục 1", "luc2": "Lục 2",
+    "tim1": "Tím 1", "tim2": "Tím 2",
+    "vang1": "Vàng 1", "vang2": "Vàng 2",
+    "xanh1": "Xanh 1", "xanh2": "Xanh 2",
+}
+
+# Các câu thoại vui khi số đợi xuất hiện
+WAITING_RESPONSES = [
+    "🚀 Chờ đợi là hạnh phúc! Em **{number}** đã cập bến. Chúc mừng {mentions}!",
+    "📢 Loa loa! Tin chuẩn chưa anh em? Số **{number}** nổ rồi kìa {mentions} ơi!",
+    "🎉 Cuối cùng thì **{number}** cũng chịu ra mặt! {mentions} check ngay đi!",
+    "👀 Ơ kìa, ai đợi số **{number}** thì dậy đi thôi! {mentions} dậy đi!",
+    "🎲 Cầu được ước thấy! Số **{number}** đã về đội của {mentions}!",
+    "💥 Bùm! **{number}** xuất hiện như một vị thần! {mentions} sướng nhé!",
+]
 TICKET_DISPLAY_NAMES: dict[str, str] = {
     "cam1": "Cam số 1",
     "cam2": "Cam số 2",

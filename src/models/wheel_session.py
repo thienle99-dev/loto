@@ -64,6 +64,8 @@ class WheelSession:
         self.tickets: dict[str, int] = {}
         # Vé của từng user: {user_id: ticket_code}
         self.user_tickets: dict[int, str] = {}
+        # Danh sách người đợi số: {number: [(user_id, name), ...]}
+        self.waiting_numbers: dict[int, list[tuple[int, str]]] = {}
         
         # Tạo danh sách số ban đầu
         self.available_numbers = list(range(start_number, end_number + 1))
@@ -111,6 +113,7 @@ class WheelSession:
             'winners': self.winners,
             'tickets': self.tickets,
             'user_tickets': self.user_tickets,
+            'waiting_numbers': {str(k): v for k, v in self.waiting_numbers.items()},
         }
     
     @classmethod
@@ -138,6 +141,16 @@ class WheelSession:
         # Khôi phục thêm thông tin vé (luôn gán, mặc định là dict rỗng)
         session.tickets = data.get('tickets', {})
         session.user_tickets = data.get('user_tickets', {})
+        
+        waiting_data = data.get('waiting_numbers', {})
+        session.waiting_numbers = {}
+        for k, v in waiting_data.items():
+            try:
+                # Key trong JSON là string, nhưng logic dùng int
+                session.waiting_numbers[int(k)] = v
+            except ValueError:
+                pass
+                
         return session
 
     # Quản lý người tham gia
