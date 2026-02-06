@@ -148,7 +148,7 @@ def get_round_leaderboard_text(round_name: str, user_tokens: dict) -> str:
     if not players:
         return "ℹ️ Chưa có dữ liệu người chơi trong vòng này."
 
-    top_rich = sorted(players, key=lambda x: x["token"], reverse=True)[:10]
+    top_rich = sorted([p for p in players if p["token"] > 0], key=lambda x: x["token"], reverse=True)[:10]
     top_poor = sorted(players, key=lambda x: x["token"])[:10]
     top_poor = [p for p in top_poor if p["token"] < 0]
 

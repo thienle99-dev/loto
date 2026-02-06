@@ -34,7 +34,7 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     # Sắp xếp
-    top_rich = sorted(players, key=lambda x: x["token"], reverse=True)[:5]
+    top_rich = sorted([p for p in players if p["token"] > 0], key=lambda x: x["token"], reverse=True)[:5]
     top_poor = sorted(players, key=lambda x: x["token"])[:5]
     
     # Loại bỏ những người có token >= 0 khỏi top xa bờ (chỉ lấy người âm)
