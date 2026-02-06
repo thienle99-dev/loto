@@ -1,10 +1,15 @@
 import logging
+from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ForceReply
 from telegram.ext import ContextTypes
-from telegram.error import RetryAfter
+from telegram.error import RetryAfter, TimedOut, NetworkError
 from config.config import WELCOME_MESSAGE, HELP_MESSAGE
+from src.bot.constants import COOLDOWN_GENERAL_SECONDS
 
 logger = logging.getLogger(__name__)
+
+# Rate limiting: {(user_id, chat_id): last_action_time}
+last_action_time: dict[tuple[int, int], datetime] = {}
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /start - hiển thị hướng dẫn tổng quan"""
@@ -88,6 +93,23 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def generic_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Xử lý các lệnh từ nút bấm trong Menu (hỗ trợ điều khiển từ xa qua chat_id nhúng)"""
+    query = update.callback_query
+    user = update.effective_user
+    
+    # Rate limiting
+    key = (user.id, query.message.chat_id)
+    now = datetime.now()
+    
+    if key in last_action_time:
+        time_since_last = (now - last_action_time[key]).total_seconds()
+        if time_since_last < COOLDOWN_GENERAL_SECONDS:
+            await query.answer(
+                f"⏱️ Vui lòng đợi {COOLDOWN_GENERAL_SECONDS - time_since_last:.1f}s",
+                show_alert=False
+            )
+            return
+    
+    last_action_time[key] = now
     query = update.callback_query
     data = query.data
     
@@ -181,6 +203,12 @@ async def generic_command_callback(update: Update, context: ContextTypes.DEFAULT
     except RetryAfter as e:
         logger.warning(f"Flood control: {e}")
         await query.answer(f"⏱️ Vui lòng đợi {e.retry_after} giây rồi thử lại.", show_alert=True)
+    except TimedOut:
+        logger.warning("Request timed out")
+        await query.answer("⏱️ Kết nối bị timeout. Vui lòng thử lại.", show_alert=True)
+    except NetworkError as e:
+        logger.warning(f"Network error: {e}")
+        await query.answer("🌐 Lỗi kết nối mạng. Vui lòng thử lại.", show_alert=True)
     except Exception as e:
         logger.error(f"Error in generic_command_callback: {e}")
         await query.answer("Có lỗi xảy ra khi thực hiện lệnh.", show_alert=True)

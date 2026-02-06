@@ -11,6 +11,7 @@ DEFAULT_REMOVE_AFTER_SPIN = True
 # Cooldown chống spam
 COOLDOWN_SPIN_SECONDS = 2
 COOLDOWN_CHECK_SECONDS = 2
+COOLDOWN_GENERAL_SECONDS = 1  # Rate limit cho các lệnh thông thường
 
 # Danh sách mã vé (mã màu viết tắt)
 TICKET_CODES = [
