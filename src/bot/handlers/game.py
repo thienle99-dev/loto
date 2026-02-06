@@ -86,8 +86,9 @@ async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     suffix = f":{target_chat_id}"
 
     await update.message.reply_text(
-        f"✅ *Đã tạo vòng chơi mới\\!* \n\n"
-        f"🔄 Tên vòng: `{escape_markdown(round_name)}`\n\n"
+        f"✅ *Đã tạo vòng chơi mới\\!* \n"
+        f"🔄 Tên vòng: `{escape_markdown(round_name)}`\n"
+        f"🧹 *Đã reset toàn bộ Token & Thống kê về 0.*\n\n"
         "Giờ bạn có thể dùng các nút bên dưới hoặc lệnh gõ:\n"
         "• `/moi <tên_game>` để tạo ván game\n"
         "• `/ket_thuc_vong` để kết thúc vòng chơi",
