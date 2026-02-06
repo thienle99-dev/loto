@@ -90,6 +90,11 @@ WAITING_RESPONSES = [
     "🛒 Chốt đơn! **{number}** đã vào giỏ hàng của {mentions}. Thanh toán niềm vui nào!",
     "🌈 Sau cơn mưa trời lại sáng, sau bao ngày đợi **{number}** cũng sang. Chúc mừng {mentions}!",
 ]
+
+# Các câu tiêu đề khi quay số
+SPIN_HEADERS = [
+    "✨ *Số quay ra:*",
+]
 TICKET_DISPLAY_NAMES: dict[str, str] = {
     "cam1": "Cam số 1",
     "cam2": "Cam số 2",

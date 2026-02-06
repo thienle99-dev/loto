@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from src.bot.constants import COOLDOWN_SPIN_SECONDS, COOLDOWN_CHECK_SECONDS, last_results, WAITING_RESPONSES
+from src.bot.constants import COOLDOWN_SPIN_SECONDS, COOLDOWN_CHECK_SECONDS, last_results, WAITING_RESPONSES, SPIN_HEADERS
 from src.bot.utils import (
     escape_markdown, session_manager, ensure_active_session, 
     get_chat_stats, get_last_result_for_chat
@@ -53,32 +53,33 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         drawn_numbers = [item.get("number") for item in session.history[-5:]]
         
         # Convert số sang Emoji Keycap (0️⃣, 1️⃣...)
-        def to_emoji_digits(num):
-            """Convert số thành Emoji Keycap"""
+        def get_emoji_digit(d):
             emoji_map = {
                 '0': '0️⃣', '1': '1️⃣', '2': '2️⃣', '3': '3️⃣', '4': '4️⃣',
                 '5': '5️⃣', '6': '6️⃣', '7': '7️⃣', '8': '8️⃣', '9': '9️⃣'
             }
-            return ' '.join(emoji_map.get(c, c) for c in str(num))
+            return emoji_map.get(d, d)
+
+        # 1. Gửi TOÀN BỘ chuỗi digit emoji trong 1 tin nhắn để hiện to (Big Emoji)
+        str_num = str(number)
+        full_emoji_str = "".join(get_emoji_digit(d) for d in str_num)
+        await context.bot.send_message(chat_id=chat_id, text=full_emoji_str)
         
-        emoji_number = to_emoji_digits(number)
+        # 2. Phần thống kê và nút bấm (Header + Gần đây)
+        header_text = random.choice(SPIN_HEADERS)
+        stats_msg = f"{header_text} `{number}`\n"
+        stats_msg += "━━━━━━━━━━━━━━━━━━━\n"
         
-        # SỐ TRÚNG THƯỞNG nổi bật với số to
-        message = "🎊🎊🎊🎊🎊🎊🎊🎊🎊\n\n"
-        message += f"🎯 *SỐ TRÚNG THƯỞNG*\n\n"
-        message += f"     {emoji_number}\n\n"
-        message += "🎊🎊🎊🎊🎊🎊🎊🎊🎊\n\n"
-        
-        # Hiển thị lịch sử gần đây theo dọc (mới nhất ở trên)
+        # Hiển thị lịch sử gần đây
         if drawn_numbers:
-            message += "📜 *Gần đây:*\n"
+            stats_msg += "📜 *Gần đây:*\n"
             for num in reversed(drawn_numbers):
-                message += f"   • `{num}`\n"
-            message += "\n"
+                stats_msg += f"   • `{num}`\n"
+            stats_msg += "\n"
         
         # Kiểm tra và tag người đang đợi số này
         if hasattr(session, 'waiting_numbers') and number in session.waiting_numbers:
-            waiters = session.waiting_numbers.pop(number) # Lấy và xóa luôn để không báo lại
+            waiters = session.waiting_numbers.pop(number)
             if waiters:
                 mentions = []
                 for uid, name in waiters:
@@ -86,18 +87,17 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
                 mentions_str = ", ".join(mentions)
                 response_template = random.choice(WAITING_RESPONSES)
-                # Format: "Á đù, số **23** về rồi kìa! [User] đâu ra nhận hàng!"
                 response = response_template.format(number=number, mentions=mentions_str)
-                message += f"{response}\n\n"
+                stats_msg += f"{response}\n\n"
         
-        message += f"📊 Còn lại: `{session.get_remaining_count()}/{session.get_total_numbers()}`"
+        stats_msg += f"📊 Còn lại: `{session.get_remaining_count()}/{session.get_total_numbers()}`"
         
         keyboard = [
             [InlineKeyboardButton("🎲 Quay tiếp", callback_data=f"cmd:quay{suffix}"),
              InlineKeyboardButton("📜 Các số đã ra", callback_data=f"cmd:trang_thai{suffix}")]
         ]
         if session.is_empty():
-            message += "\n\n⚠️ Danh sách đã hết\\! Sử dụng `/reset` để làm mới\\."
+            stats_msg += "\n\n⚠️ Danh sách đã hết\\! Sử dụng `/reset` để làm mới\\."
             keyboard = [[InlineKeyboardButton("🔄 Reset số", callback_data=f"cmd:dat_lai{suffix}")]]
         
         keyboard.append([InlineKeyboardButton("🧾 Kiểm tra vé (/kinh)", switch_inline_query_current_chat="kinh ")])
@@ -106,8 +106,8 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("🕹️ Game mới", callback_data=f"cmd:moi_input{suffix}")
         ])
 
-        # Gửi kết quả ngay lập tức
-        await update.message.reply_text(message, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+        # Gửi message thống kê và nút điều khiển
+        await context.bot.send_message(chat_id=chat_id, text=stats_msg, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
         session_manager.persist_session(chat_id)
     except ValueError as e:
         await update.message.reply_text(f"❌ {str(e)}")
