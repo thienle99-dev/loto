@@ -182,7 +182,7 @@ async def generic_command_callback(update: Update, context: ContextTypes.DEFAULT
             await query.message.reply_text(
                 f"📝 *Tạo Vòng mới cho nhóm {target_chat_id}*\n\nHãy nhập tên vòng chơi mới của bạn:",
                 parse_mode="Markdown",
-                reply_markup=ForceReply(selective=True)
+                reply_markup=ForceReply(True)
             )
             context.user_data["pending_action"] = "vong_moi"
             context.user_data["target_chat_id"] = target_chat_id
@@ -190,7 +190,7 @@ async def generic_command_callback(update: Update, context: ContextTypes.DEFAULT
             await query.message.reply_text(
                 f"📝 *Tạo Game mới cho nhóm {target_chat_id}*\n\nHãy nhập tên ván game mới:",
                 parse_mode="Markdown",
-                reply_markup=ForceReply(selective=True)
+                reply_markup=ForceReply(True)
             )
             context.user_data["pending_action"] = "moi"
             context.user_data["target_chat_id"] = target_chat_id
@@ -217,11 +217,33 @@ async def handle_force_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Xử lý khi user reply lại tin nhắn nhập tên Vòng/Game"""
     if not update.message or not update.message.text:
         return
+    
+    # Kiểm tra xem có phải là reply cho bot không
+    reply_to = update.message.reply_to_message
+    if not reply_to or not reply_to.from_user or reply_to.from_user.id != context.bot.id:
+        return
         
     action = context.user_data.get("pending_action")
     target_chat_id = context.user_data.get("target_chat_id")
     
+    # Fallback: Nếu mất user_data, thử trích xuất từ text của tin nhắn gốc
     if not action or not target_chat_id:
+        import re
+        reply_text = reply_to.text or ""
+        
+        # Trích xuất chat_id từ text: "nhóm -123456789"
+        chat_id_match = re.search(r"nhóm (-?\d+)", reply_text)
+        if chat_id_match:
+            target_chat_id = int(chat_id_match.group(1))
+            
+        # Xác định hành động dựa trên từ khóa trong text
+        if "Vòng mới" in reply_text:
+            action = "vong_moi"
+        elif "Game mới" in reply_text:
+            action = "moi"
+
+    if not action or not target_chat_id:
+        # Nếu vẫn không xác định được, bỏ qua
         return
         
     text = update.message.text.strip()
@@ -246,8 +268,12 @@ async def handle_force_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
         elif action == "moi":
             await newsession_command(mock_update, context)
             
-        del context.user_data["pending_action"]
-        del context.user_data["target_chat_id"]
+        # Xóa trạng thái chờ sau khi xong
+        if "pending_action" in context.user_data:
+            del context.user_data["pending_action"]
+        if "target_chat_id" in context.user_data:
+            del context.user_data["target_chat_id"]
+            
     except Exception as e:
         logger.error(f"Error in handle_force_reply: {e}")
-        await update.message.reply_text(f"❌ Có lỗi khi tạo: {e}")
+        # Không cần reply lỗi nếu lệnh đã tự reply rồi

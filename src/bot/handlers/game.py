@@ -1,7 +1,7 @@
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from src.bot.constants import active_rounds, round_history, MAX_NUMBERS, DEFAULT_REMOVE_AFTER_SPIN, last_results
+from src.bot.constants import active_rounds, round_history, MAX_NUMBERS, DEFAULT_REMOVE_AFTER_SPIN, last_results, BET_AMOUNT
 from src.bot.utils import escape_markdown, session_manager, get_chat_stats
 from src.utils.validators import validate_range, validate_number
 from src.db.sqlite_store import save_stats, save_last_result, save_active_round, delete_active_round_row
@@ -133,6 +133,17 @@ async def endround_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
         )
         return
+
+    # Hiển thị BXH cuối cùng của vòng trước khi xoá
+    games = round_history.get(chat_id, [])
+    if games:
+        from src.bot.utils import calculate_round_tokens, get_round_leaderboard_text
+        user_tokens = calculate_round_tokens(games)
+        leaderboard_msg = get_round_leaderboard_text(round_name, user_tokens)
+        await update.message.reply_text(
+            f"🏁 *KẾT THÚC VÒNG CHƠI: {escape_markdown(round_name)}*\n\n" + leaderboard_msg,
+            parse_mode='Markdown'
+        )
 
     # 3. Xoá vòng chơi khỏi active_rounds (RAM) và DB
     del active_rounds[chat_id]
@@ -467,25 +478,25 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         info["name"] = name
         participations[uid] = info
 
-    # Tính điểm token theo công thức mới
+    # Tính điểm token theo công thức mới: CHỈ TÍNH KHI CÓ NGƯỜI THẮNG
     wins = chat_stats["wins"]
     unique_winners = {w.get("user_id"): w.get("name") or str(w.get("user_id")) 
                       for w in getattr(session, "winners", []) if w.get("user_id") is not None}
 
-    if total_players > 0:
+    token_per_winner = 0
+    bet_amount = BET_AMOUNT
+
+    if total_players > 0 and unique_winners:
         num_winners = len(unique_winners)
-        bet_amount = 5.0  # Mức cược mỗi ván
+        # Người thắng: nhận phần tiền của người thua
+        # Công thức zero-sum: (Tổng người chơi * cược / Số người thắng) - cược
+        token_per_winner = (total_players * bet_amount / num_winners) - bet_amount
         
-        if num_winners > 0:
-            # Người thắng: nhận phần tiền của người thua
-            # Công thức zero-sum: (Tổng người chơi * cược / Số người thắng) - cược
-            token_per_winner = (total_players * bet_amount / num_winners) - bet_amount
-            
-            for uid, name in unique_winners.items():
-                info = wins.get(uid, {"count": 0.0, "name": name})
-                info["count"] += token_per_winner
-                info["name"] = name
-                wins[uid] = info
+        for uid, name in unique_winners.items():
+            info = wins.get(uid, {"count": 0.0, "name": name})
+            info["count"] += token_per_winner
+            info["name"] = name
+            wins[uid] = info
         
         # Người thua: mất cược
         loser_ids = [p.get("user_id") for p in participants 
@@ -498,6 +509,39 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
             info["count"] -= bet_amount
             info["name"] = name
             wins[uid] = info
+
+    # Xây dựng danh sách biến động token ván này
+    token_results = []
+    if total_players > 0 and unique_winners:
+        actual_participants_list = session.get_participants()
+        for p in actual_participants_list:
+            p_uid = p.get("user_id")
+            if p_uid is None: continue
+            p_name = p.get("name") or str(p_uid)
+            
+            if p_uid in unique_winners:
+                token_results.append(f"   • {escape_markdown(p_name)}: `+{token_per_winner:.1f}` 🏆")
+            else:
+                token_results.append(f"   • {escape_markdown(p_name)}: `-{bet_amount:.1f}`")
+    elif total_players > 0 and not unique_winners:
+        token_results.append("   _(Không ai thắng, token không thay đổi)_")
+    
+    token_changes_msg = ""
+    if token_results:
+        token_changes_msg = "\n\n💰 *Biến động Token ván này:*\n" + "\n".join(token_results)
+        
+    # Tính toán Token tổng cộng trong vòng (cumulative)
+    cumulative_results = []
+    # Sắp xếp theo token giảm dần
+    sorted_wins = sorted(wins.items(), key=lambda x: x[1].get("count", 0.0), reverse=True)
+    for uid, info in sorted_wins:
+        total_token = info.get("count", 0.0)
+        p_name = info.get("name") or str(uid)
+        txt_token = f"+{total_token:.1f}" if total_token > 0 else f"{total_token:.1f}"
+        cumulative_results.append(f"   • {escape_markdown(p_name)}: `{txt_token}`")
+        
+    if cumulative_results:
+        token_changes_msg += "\n\n🏆 *Tổng Token sau ván này:*\n" + "\n".join(cumulative_results)
 
     host_name = user.full_name or (user.username or str(user_id))
     result_data = {
@@ -517,11 +561,24 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if chat_id not in round_history:
             round_history[chat_id] = []
         
+        # Chỉ tính những người thực sự có vé là người tham gia ván này
+        ticket_holders = set()
+        if hasattr(session, 'user_tickets'):
+            # Convert keys to int for safety
+            ticket_holders = {int(uid) for uid in session.user_tickets.keys()}
+        
+        all_participants = session.get_participants()
+        actual_participants = [p for p in all_participants if int(p.get("user_id")) in ticket_holders]
+        
+        # Nếu host cũng chơi (có vé) thì đã nằm trong actual_participants. 
+        # Nếu host không chơi nhưng bạn vẫn muốn họ có trong list stats (với 0 điểm) 
+        # thì logic tính toán ở leaderboard sẽ tự lo. Ở đây ta chỉ lấy người có vé.
+
         game_record = {
             "game_name": game_name,
             "host_name": host_name,
             "winners": list(getattr(session, "winners", [])),
-            "participants": session.get_participants(),
+            "participants": actual_participants,
             "numbers_drawn": len(session.history),
             "ended_at": datetime.now().isoformat(timespec="seconds"),
         }
@@ -535,6 +592,7 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     msg = f"🛑 *Đã kết thúc ván chơi* `{escape_markdown(game_name)}`\\.\n\n" if game_name else \
           "🛑 *Đã kết thúc game hiện tại\\!* \n\n"
     msg += "Bạn có thể tạo ván chơi mới hoặc vòng mới bằng nút bên dưới\\."
+    msg += token_changes_msg
 
     await update.message.reply_text(
         msg, 

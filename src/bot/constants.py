@@ -11,6 +11,7 @@ round_history: dict[int, list] = {}
 # Cấu hình mặc định cho ván game
 MAX_NUMBERS = 90
 DEFAULT_REMOVE_AFTER_SPIN = True
+BET_AMOUNT = 5.0
 
 # Cooldown chống spam
 COOLDOWN_SPIN_SECONDS = 0.5  # Giảm từ 2s xuống 0.5s để tăng tốc

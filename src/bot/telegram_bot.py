@@ -64,7 +64,7 @@ from src.bot.handlers.spin import (
 )
 
 # Import leaderboard handler
-from src.bot.handlers.leaderboard import leaderboard_command
+from src.bot.handlers.leaderboard import leaderboard_command, leaderboard_round_command, show_user_token_command, reset_token_command
 
 # Import wait handler
 from src.bot.handlers.wait import wait_command
@@ -117,6 +117,10 @@ def setup_bot(token: str) -> Application:
             ("trang_thai", "Trạng thái"),
             ("ket_thuc", "Kết thúc game"),
             ("tong_ket", "Tổng kết game"),
+            ("xem_token", "Xem token cá nhân"),
+            ("reset_token", "Reset Token về 0"),
+            ("xep_hang_vong", "BXH vòng hiện tại"),
+            ("xep_hang", "BXH tổng"),
             ("doi", "Đợi số"),
             ("tro_giup", "Trợ giúp")
         ])
@@ -154,6 +158,9 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("xoa", clear_command))
     application.add_handler(CommandHandler("ket_qua", lastresult_command))
     application.add_handler(CommandHandler("tong_ket", summary_command))
+    application.add_handler(CommandHandler("xem_token", show_user_token_command))
+    application.add_handler(CommandHandler("reset_token", reset_token_command))
+    application.add_handler(CommandHandler("xep_hang_vong", leaderboard_round_command))
     application.add_handler(CommandHandler("xep_hang", leaderboard_command))
     application.add_handler(CommandHandler("doi", wait_command))
     application.add_handler(CommandHandler("tro_giup", help_command))
@@ -163,7 +170,7 @@ def setup_bot(token: str) -> Application:
 
     # Glue handlers
     application.add_handler(CallbackQueryHandler(generic_command_callback, pattern="^cmd:"))
-    application.add_handler(MessageHandler(filters.REPLY & filters.TEXT & filters.ChatType.PRIVATE, handle_force_reply))
+    application.add_handler(MessageHandler(filters.REPLY & filters.TEXT, handle_force_reply))
     application.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, web_app_data_handler))
     
     return application

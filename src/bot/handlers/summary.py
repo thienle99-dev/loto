@@ -2,7 +2,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from src.bot.utils import escape_markdown, session_manager, get_chat_stats
-from src.bot.constants import active_rounds, round_history
+from src.bot.constants import active_rounds, round_history, BET_AMOUNT
 
 logger = logging.getLogger(__name__)
 
@@ -78,15 +78,29 @@ async def summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message += "   ℹ️ Không có người thắng\n"
         message += "\n"
         
-        # Người tham gia với token
+        # Người tham gia với token ván này
         if participants:
-            message += "👥 *Người chơi:*\n"
-            for p in participants:
-                name = p.get("name", "Không rõ")
-                uid = p.get("user_id")
-                token_count = wins.get(uid, {}).get("count", 0.0) if uid else 0.0
-                token_str = f" \\- Token: `{token_count:+.1f}`" if token_count != 0 else " \\- Token: `0.0`"
-                message += f"   • {escape_markdown(name)}{token_str}\n"
+            message += "👥 *Người chơi (Token ván này):*\n"
+            
+            # Tính toán token ván này
+            bet_amount = BET_AMOUNT
+            game_winners_ids = {int(w.get("user_id")) for w in winners if w.get("user_id") is not None}
+            num_winners = len(game_winners_ids)
+            
+            if num_winners > 0:
+                token_win = (len(participants) * bet_amount / num_winners) - bet_amount
+                for p in participants:
+                    name = p.get("name", "Không rõ")
+                    uid = int(p.get("user_id")) if p.get("user_id") is not None else None
+                    if uid in game_winners_ids:
+                        token_str = f" \\- Token: `+{token_win:.1f}` 🏆"
+                    else:
+                        token_str = f" \\- Token: `-{bet_amount:.1f}`"
+                    message += f"   • {escape_markdown(name)}{token_str}\n"
+            else:
+                for p in participants:
+                    name = p.get("name", "Không rõ")
+                    message += f"   • {escape_markdown(name)} \\- Token: `0.0`\n"
         message += "\n"
         
         message += "━━━━━━━━━━━━━━━━━━━\n\n"
