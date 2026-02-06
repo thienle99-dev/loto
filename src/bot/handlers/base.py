@@ -78,35 +78,12 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Nếu đang ở trong nhóm/supergroup
-    if chat.type in ["group", "supergroup"]:
-        try:
-            # Gửi tin nhắn riêng cho user
-            await context.bot.send_message(
-                chat_id=user.id,
-                text=text + "\n\n⚠️ *Lưu ý:* Menu này chỉ mình bạn thấy và dùng để điều khiển game trong nhóm.",
-                reply_markup=reply_markup,
-                parse_mode="Markdown"
-            )
-            # Thông báo trong nhóm
-            await update.message.reply_text(
-                f"📥 {user.mention_markdown()}\\!, tôi đã gửi Menu điều khiển riêng cho bạn\\. Hãy kiểm tra tin nhắn chờ nhé\\!",
-                parse_mode="Markdown"
-            )
-        except Exception as e:
-            # Nếu user chưa bao giờ chat với bot -> Bot không thể chủ động nhắn tin
-            await update.message.reply_text(
-                f"❌ {user.mention_markdown()}\\!, tôi không thể gửi tin nhắn riêng cho bạn\\.\n\n"
-                f"Vui lòng nhấn vào @{context.bot.username} và bấm *Bắt đầu (Start)* trước, sau đó thử lại `/menu`\\.",
-                parse_mode="Markdown"
-            )
-    else:
-        # Nếu đang ở chat riêng với bot
-        await update.message.reply_text(
-            text,
-            reply_markup=reply_markup,
-            parse_mode="Markdown"
-        )
+    # Gửi Menu trực tiếp vào group/chat hiện tại để mọi người cùng thấy
+    await update.message.reply_text(
+        text,
+        reply_markup=reply_markup,
+        parse_mode="Markdown"
+    )
 
 async def generic_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Xử lý các lệnh từ nút bấm trong Menu (hỗ trợ điều khiển từ xa qua chat_id nhúng)"""
