@@ -58,8 +58,12 @@ class WheelSession:
         # Trạng thái game đã bắt đầu hay chưa (host dùng /bat_dau)
         self.started: bool = False
         # Danh sách người trúng thưởng trong game hiện tại
-        # [{'user_id': int, 'name': str, 'numbers': list[int], 'time': str}, ...]
+        # [{'user_id': int, 'name': str, 'numbers': list[int], 'time': str}, ...] 
         self.winners: list[dict] = []
+        # Quản lý vé: {ticket_code: user_id}
+        self.tickets: dict[str, int] = {}
+        # Vé của từng user: {user_id: ticket_code}
+        self.user_tickets: dict[int, str] = {}
         
         # Tạo danh sách số ban đầu
         self.available_numbers = list(range(start_number, end_number + 1))
@@ -105,10 +109,8 @@ class WheelSession:
             'participants': self.participants,
             'started': self.started,
             'winners': self.winners,
-            # Các trường phát sinh thêm trong quá trình chơi (nếu có)
-            # Dùng getattr để tránh crash nếu thuộc tính chưa được set
-            'tickets': getattr(self, 'tickets', {}),
-            'user_tickets': getattr(self, 'user_tickets', {}),
+            'tickets': self.tickets,
+            'user_tickets': self.user_tickets,
         }
     
     @classmethod
@@ -133,13 +135,9 @@ class WheelSession:
         session.participants = data.get('participants', [])
         session.started = data.get('started', False)
         session.winners = data.get('winners', [])
-        # Khôi phục thêm thông tin vé nếu có
-        tickets = data.get('tickets')
-        if isinstance(tickets, dict):
-            session.tickets = tickets
-        user_tickets = data.get('user_tickets')
-        if isinstance(user_tickets, dict):
-            session.user_tickets = user_tickets
+        # Khôi phục thêm thông tin vé (luôn gán, mặc định là dict rỗng)
+        session.tickets = data.get('tickets', {})
+        session.user_tickets = data.get('user_tickets', {})
         return session
 
     # Quản lý người tham gia

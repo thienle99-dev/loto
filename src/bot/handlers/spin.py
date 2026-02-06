@@ -22,11 +22,6 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     session = session_manager.get_session(chat_id)
     
     now = datetime.now()
-    last_time = last_spin_time.get(chat_id)
-    if last_time and (now - last_time).total_seconds() < COOLDOWN_SPIN_SECONDS:
-        wait = COOLDOWN_SPIN_SECONDS - (now - last_time).total_seconds()
-        await update.message.reply_text(f"⏱️ Vui lòng đợi khoảng `{wait:.1f}` giây nữa rồi mới quay tiếp.", parse_mode='Markdown')
-        return
 
     if not session:
         await update.message.reply_text(
