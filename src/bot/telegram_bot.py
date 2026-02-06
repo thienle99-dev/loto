@@ -69,6 +69,10 @@ from src.bot.handlers.leaderboard import leaderboard_command
 # Import wait handler
 from src.bot.handlers.wait import wait_command
 
+# Import inline handler
+from src.bot.handlers.inline import inline_query_handler
+from telegram.ext import InlineQueryHandler
+
 # Setup logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -153,6 +157,9 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("xep_hang", leaderboard_command))
     application.add_handler(CommandHandler("doi", wait_command))
     application.add_handler(CommandHandler("tro_giup", help_command))
+
+    # Inline Query Handler
+    application.add_handler(InlineQueryHandler(inline_query_handler))
 
     # Glue handlers
     application.add_handler(CallbackQueryHandler(generic_command_callback, pattern="^cmd:"))

@@ -68,3 +68,24 @@ class SessionManager:
     def clear_all(self) -> None:
         """Xóa tất cả sessions trong RAM (không đụng tới DB)."""
         self._sessions.clear()
+
+    def get_sessions_containing_user(self, user_id: int) -> list[tuple[int, WheelSession]]:
+        """Lấy danh sách (chat_id, session) mà user_id đang tham gia"""
+        results = []
+        for chat_id, session in self._sessions.items():
+            # Chỉ check session active
+            if not getattr(session, "started", False):
+                continue
+                
+            # Check owner
+            if getattr(session, "owner_id", None) == user_id:
+                results.append((chat_id, session))
+                continue
+                
+            # Check participants
+            participants = getattr(session, "participants", [])
+            for p in participants:
+                if p.get("user_id") == user_id:
+                    results.append((chat_id, session))
+                    break
+        return results
