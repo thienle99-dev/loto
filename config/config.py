@@ -12,6 +12,7 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 # Bot Settings
 MAX_NUMBERS = 90  # Giới hạn số lượng số trong danh sách
 DEFAULT_REMOVE_AFTER_SPIN = True  # Mặc định có loại bỏ số sau khi quay
+WEB_APP_URL = os.getenv('WEB_APP_URL', 'https://your-public-url.com')  # URL cho Mini App
 
 # Messages
 WELCOME_MESSAGE = """
