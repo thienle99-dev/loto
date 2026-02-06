@@ -3,10 +3,11 @@ Telegram bot handlers và commands
 """ 
 import logging
 from datetime import datetime, timedelta
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton 
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
+    CallbackQueryHandler,
     ContextTypes,
     MessageHandler,
     filters
@@ -115,12 +116,12 @@ TICKET_DISPLAY_NAMES: dict[str, str] = {
     "cam2": "Cam số 2",
     "do1": "Đổ số 1",
     "do2": "Đổ số 2",
-    "duong1": "Đường số 1",
-    "duong2": "Đường số 2",
+    "duong1": "Xanh dương số 1",
+    "duong2": "Xanh dương số 2",
     "hong1": "Hồng số 1",
     "hong2": "Hồng số 2",
-    "luc1": "Lục số 1",
-    "luc2": "Lục số 2",
+    "luc1": "Xanh lục số 1",
+    "luc2": "Xanh lục số 2",
     "tim1": "Tím số 1",
     "tim2": "Tím số 2",
     "vang1": "Vàng số 1",
@@ -222,14 +223,22 @@ async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "created_at": datetime.now().isoformat(timespec="seconds"),
     }
 
+    target_chat_id = chat_id
+    suffix = f":{target_chat_id}"
+
     await update.message.reply_text(
         f"✅ *Đã tạo vòng chơi mới\\!* \n\n"
         f"🔄 Tên vòng: `{escape_markdown(round_name)}`\n\n"
-        "Giờ bạn có thể dùng:\n"
-        "• `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo các game trong vòng này.\n"
-        "• `/ket_thuc` để kết thúc từng game.\n"
-        "• `/ket_thuc_vong` để kết thúc vòng chơi.",
+        "Giờ bạn có thể dùng các nút bên dưới hoặc lệnh gõ:\n"
+        "• `/moi <tên_game>` để tạo ván game\n"
+        "• `/ket_thuc_vong` để kết thúc vòng chơi",
         parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🕹️ Tạo Game", callback_data=f"cmd:moi_input{suffix}"),
+                InlineKeyboardButton("🏁 Kết thúc Vòng", callback_data=f"cmd:ket_thuc_vong{suffix}"),
+            ]
+        ])
     )
 
 
@@ -308,69 +317,85 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /menu - hiển thị menu phím bấm nhanh"""
+    """Handler cho lệnh /menu - hiển thị menu phím bấm nhanh (Inboxed if in group)"""
+    user = update.effective_user
+    chat = update.effective_chat
+    
+    # Text menu rút gọn và trực quan
+    text = (
+        "📋 *Bảng điều khiển Loto*\n\n"
+        "🕹️ *Quản lý Game*\n"
+        "• `/moi` \\- Tạo game mới\n"
+        "• `/bat_dau` \\- Bắt đầu game\n"
+        "• `/ket_thuc` \\- Kết thúc game\n\n"
+        "🎟️ *Người chơi*\n"
+        "• `/lay_ve` \\- Chọn màu vé\n"
+        "• `/danh_sach` \\- Xem người chơi\n"
+        "• `/tra_ve` \\- Rời game\n\n"
+        "🎲 *Thao tác*\n"
+        "• `/quay` \\- Quay số mới\n"
+        "• `/kinh` \\- Kiểm tra vé\n"
+        "• `/trang_thai` \\- Xem tiến độ\n"
+        "• `/lich_su` \\- Xem các số đã ra"
+    )
+
+    # Nhận diện chat_id để nhúng vào nút bấm (để điều khiển từ xa khi gửi vào PM)
+    target_chat_id = chat.id
+    suffix = f":{target_chat_id}"
+
+    # Inline Keyboard cho Menu - Nhúng ID nhóm vào callback
     keyboard = [
         [
-            KeyboardButton("/moi"),
-            KeyboardButton("/lay_ve"),
-            KeyboardButton("/danh_sach"),
+            InlineKeyboardButton("🆕 Vòng mới", callback_data=f"cmd:vong_moi_input{suffix}"),
+            InlineKeyboardButton("🏁 Kết thúc Vòng", callback_data=f"cmd:ket_thuc_vong{suffix}"),
         ],
         [
-            KeyboardButton("/quay"),
-            KeyboardButton("/kinh"),
-            KeyboardButton("/trang_thai"),
+            InlineKeyboardButton("🕹️ Tạo Game", callback_data=f"cmd:moi_input{suffix}"),
+            InlineKeyboardButton("🛑 Kết thúc Game", callback_data=f"cmd:ket_thuc{suffix}"),
         ],
         [
-            KeyboardButton("/lich_su"),
-            KeyboardButton("/dat_lai"),
+            InlineKeyboardButton("🎟️ Lấy vé", callback_data=f"cmd:lay_ve{suffix}"),
+            InlineKeyboardButton("📊 Trạng thái", callback_data=f"cmd:trang_thai{suffix}"),
         ],
         [
-            KeyboardButton("/ket_thuc"),
-            KeyboardButton("/tra_ve"),
-            KeyboardButton("/xoa"),
+            InlineKeyboardButton("� Quay số", callback_data=f"cmd:quay{suffix}"),
+            InlineKeyboardButton("�🏆 Xếp hạng", callback_data=f"cmd:xep_hang{suffix}"),
         ],
+        [
+            InlineKeyboardButton("❓ Trợ giúp", callback_data=f"cmd:tro_giup{suffix}"),
+        ]
     ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
-    reply_markup = ReplyKeyboardMarkup(
-        keyboard,
-        resize_keyboard=True,
-        one_time_keyboard=False,
-    )
-
-    text = (
-        "📋 *Menu thao tác nhanh*\n\n"
-        "🕹️ *Vòng chơi & game*\n"
-        "• `/vong_moi <tên_vòng>` \\- tạo vòng chơi mới trong chat\n"
-        "• `/moi <tên_game>` \\- tạo game mới trong vòng / chat\n"
-        "• `/pham_vi <x> <y>` \\- tạo game với khoảng số tuỳ chỉnh\n"
-        "• `/bat_dau` \\- host bấm để *bắt đầu* game\n"
-        "• `/lay_ve <mã_vé>` \\- lấy vé để tham gia game \\(bắt buộc trước khi chơi\\)\n"
-        "• `/danh_sach` \\- xem danh sách người đã lấy vé\n"
-        "• `/tra_ve` \\- trả vé và rời game (người thường)\n\n"
-        "🎲 *Quay số & trạng thái*\n"
-        "• `/quay` \\- quay số\n"
-        "• `/kinh <dãy_số>` \\- kiểm tra vé, số đã/ chưa quay\n"
-        "• `/trang_thai` \\- xem trạng thái hiện tại\n"
-        "• `/lich_su` \\- lịch sử quay gần đây\n\n"
-        "⚙️ *Quản lý phiên chơi*\n"
-        "• `/dat_lai` \\- reset lại dãy số\n"
-        "• `/ket_thuc` \\- kết thúc game (chỉ host)\n"
-        "• `/xoa` \\- xoá session trong chat\n\n"
-        "📊 *Thống kê & kết quả*\n"
-        "• `/ket_qua` \\- xem kết quả game gần nhất trong chat\n"
-        "• `/xep_hang` \\- bảng xếp hạng trúng thưởng (mặc định)\n"
-        "ℹ️ *Khác*\n"
-        "• `/tro_giup` \\- hướng dẫn chi tiết\n\n"
-        "_Chọn nhanh nút bên dưới rồi bổ sung tham số nếu cần, ví dụ:_\n"
-        "• `/moi Loto tối nay`\n"
-        "• `/kinh 1 5 10 20`"
-    )
-
-    await update.message.reply_text(
-        text,
-        parse_mode="Markdown",
-        reply_markup=reply_markup,
-    )
+    # Nếu đang ở trong nhóm/supergroup
+    if chat.type in ["group", "supergroup"]:
+        try:
+            # Gửi tin nhắn riêng cho user
+            await context.bot.send_message(
+                chat_id=user.id,
+                text=text + "\n\n⚠️ *Lưu ý:* Menu này chỉ mình bạn thấy và dùng để điều khiển game trong nhóm.",
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+            # Thông báo trong nhóm
+            await update.message.reply_text(
+                f"📥 {user.mention_markdown()}\\!, tôi đã gửi Menu điều khiển riêng cho bạn\\. Hãy kiểm tra tin nhắn chờ nhé\\!",
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            # Nếu user chưa bao giờ chat với bot -> Bot không thể chủ động nhắn tin
+            await update.message.reply_text(
+                f"❌ {user.mention_markdown()}\\!, tôi không thể gửi tin nhắn riêng cho bạn\\.\n\n"
+                f"Vui lòng nhấn vào @{context.bot.username} và bấm *Bắt đầu (Start)* trước, sau đó thử lại `/menu`\\.",
+                parse_mode="Markdown"
+            )
+    else:
+        # Nếu đang ở chat riêng với bot
+        await update.message.reply_text(
+            text,
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
 
 
 async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -432,15 +457,23 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         # Lưu session xuống DB
         session_manager.persist_session(chat_id)
 
+        target_chat_id = chat_id
+        suffix = f":{target_chat_id}"
+
         await update.message.reply_text(
             f"✅ *Đã tạo game mới\\!*\n\n"
             f"🕹️ Tên game: `{escape_markdown(game_name)}`\n"
             f"📊 Khoảng số: `1 -> {MAX_NUMBERS}`\n"
             f"📊 Tổng số: `{session.get_total_numbers()}`\n"
             f"⚙️ Loại bỏ sau khi quay: `{'Có' if session.remove_after_spin else 'Không'}`\n\n"
-            "Người chơi dùng `/lay_ve ma_ve` để chọn vé và `/tra_ve` để rời game.\n"
-            "Host gửi `/bat_dau` để bắt đầu game, sau đó dùng `/quay` để quay và `/kinh danh_sach_so` để kiểm tra vé.",
-            parse_mode='Markdown'
+            "Người chơi chọn vé bằng nút `/lay_ve` bên dưới.\n"
+            "Host bấm `/bat_dau` khi mọi người đã sẵn sàng.",
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎟️ Lấy vé", callback_data=f"cmd:lay_ve{suffix}"), 
+                 InlineKeyboardButton("👥 Danh sách", callback_data=f"cmd:danh_sach{suffix}")],
+                [InlineKeyboardButton("🚀 Bắt đầu Game", callback_data=f"cmd:bat_dau{suffix}")]
+            ])
         )
     except ValueError as e:
         await update.message.reply_text(f"❌ Lỗi: {str(e)}")
@@ -566,14 +599,23 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         number = spin_wheel(session)
         last_spin_time[chat_id] = now
         
+        # Tự động nhúng chat_id vào nút bấm để hỗ trợ Quay tiếp từ xa (Inbox)
+        target_chat_id = chat_id
+        suffix = f":{target_chat_id}"
+        
         # Format message
         message = f"🎲 *Số được chọn: `{number}`*\n\n"
         message += f"📊 Còn lại: `{session.get_remaining_count()}/{session.get_total_numbers()}`"
         
+        keyboard = [[InlineKeyboardButton("🎲 Quay tiếp", callback_data=f"cmd:quay{suffix}")]]
         if session.is_empty():
             message += "\n\n⚠️ Danh sách đã hết\\! Sử dụng `/reset` để làm mới\\."
+            keyboard = [[InlineKeyboardButton("🔄 Reset số", callback_data=f"cmd:dat_lai{suffix}")]]
         
-        await update.message.reply_text(message, parse_mode='Markdown')
+        # Thêm nút kiểm tra vé cho người chơi
+        keyboard.append([InlineKeyboardButton("🧾 Kiểm tra vé (/kinh)", switch_inline_query_current_chat="/kinh ")])
+
+        await update.message.reply_text(message, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
 
         # Lưu session sau khi quay
         session_manager.persist_session(chat_id)
@@ -630,7 +672,10 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🔄 *Đã reset\\!*\n\n"
         f"📊 Danh sách đã được khôi phục về ban đầu\\.\n"
         f"📊 Số còn lại: `{session.get_remaining_count()}/{session.get_total_numbers()}`",
-        parse_mode='Markdown'
+        parse_mode='Markdown',
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎲 Quay ngay", callback_data="cmd:quay")]
+        ])
     )
 
 
@@ -723,7 +768,10 @@ async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🗑️ *Đã xóa session\\!*\n\n"
         "Host có thể dùng `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo game mới\\.",
-        parse_mode='Markdown'
+        parse_mode='Markdown',
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🕹️ Tạo game mới", callback_data="cmd:moi")]
+        ])
     )
 
 
@@ -739,9 +787,11 @@ async def join_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await update.message.reply_text(
         "🎟️ *Để chơi, bạn cần lấy vé trước\\!*\n\n"
-        "Dùng `/lay_ve <mã_vé>` để chọn vé và tham gia game\\. Ví dụ: `/lay_ve tim1`\n"
-        "Gõ `/lay_ve` không kèm mã để xem danh sách vé còn trống.",
-        parse_mode='Markdown'
+        "Bấm nút **Lấy vé** bên dưới để chọn màu vé của bạn\\.",
+        parse_mode='Markdown',
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎟️ Chọn vé ngay", callback_data="cmd:lay_ve")]
+        ])
     )
 
 
@@ -909,7 +959,13 @@ async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYP
             "• `/kinh <dãy_số>` để kiểm tra vé"
         )
 
-    await update.message.reply_text(text, parse_mode='Markdown')
+    await update.message.reply_text(
+        text, 
+        parse_mode='Markdown',
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎲 Quay số đầu tiên", callback_data="cmd:quay")]
+        ])
+    )
 
 
 async def lastresult_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1393,10 +1449,23 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         return
 
+    # Khám phá xem có đang điều khiển từ xa không (từ Inbox)
+    is_remote = False
+    target_chat_id = chat_id
+    if update.effective_chat.type == "private":
+        # Nếu đang ở private chat, ta kiểm tra xem có target_chat_id nào được truyền qua context không?
+        # Hoặc đơn giản là dùng chat_id hiện tại (đã được generic_command_callback fake)
+        is_remote = True
+        target_chat_id = chat_id
+
     # Không có tham số: liệt kê các vé và trạng thái
     if not context.args:
         lines: list[str] = []
         current = user_tickets.get(user_id)
+        
+        # Suffix cho callback_data nếu là remote
+        suffix = f":{target_chat_id}" if is_remote else ""
+        
         for code in TICKET_CODES:
             holder_id = tickets.get(code)
             if holder_id is None:
@@ -1437,10 +1506,30 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if people_lines:
             header += "👥 *Danh sách người đã lấy vé:*\n" + "\n".join(people_lines) + "\n\n"
 
-        header += "Dùng `/lay_ve <mã_vé>` để chọn hoặc đổi vé\\. Ví dụ: `/lay_ve tim1`"
+        header += "Chọn vé bên dưới hoặc gõ `/lay_ve <mã_vé>`\\. Ví dụ: `/lay_ve tim1`"
+        # Inline Keyboard: 4 cột, mỗi nút = một vé
+        keyboard = []
+        row = []
+        for i, code in enumerate(TICKET_CODES):
+            holder_id = tickets.get(code)
+            display = ticket_display_name(code)
+            if holder_id is None:
+                label = display
+            elif holder_id == user_id:
+                label = f"✅ {display}"
+            else:
+                label = f"🔴 {display}"
+
+            row.append(InlineKeyboardButton(label, callback_data=f"lay_ve:{code}{suffix}"))
+            if len(row) == 4 or i == len(TICKET_CODES) - 1:
+                keyboard.append(row)
+                row = []
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(
             header + "\n" + "\n".join(lines),
             parse_mode="Markdown",
+            reply_markup=reply_markup,
         )
 
         # Chỉ liệt kê, không thay đổi session -> không cần lưu
@@ -1450,7 +1539,7 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     code = context.args[0].lower()
 
     if code not in TICKET_CODES:
-        valid_list = ", ".join(f"{escape_markdown(ticket_display_name(c))} (\`{c}\`)" for c in TICKET_CODES)
+        valid_list = ", ".join(f"{escape_markdown(ticket_display_name(c))} (`{c}`)" for c in TICKET_CODES)
         await update.message.reply_text(
             "❌ *Mã vé không hợp lệ\\!*\n\n"
             f"Các vé hợp lệ: {valid_list}",
@@ -1517,10 +1606,286 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logger.error("Không thể gửi ảnh vé %s: %s", code, e)
 
+async def lay_ve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Xử lý khi user bấm nút chọn vé trên Inline Keyboard (hỗ trợ remote chat_id)"""
+    query = update.callback_query
+    # data format: "lay_ve:tim1" hoặc "lay_ve:tim1:-chat_id"
+    data_parts = query.data.split(":")
+    try:
+        code = data_parts[1]
+        # Nếu có chat_id đính kèm (remote mode)
+        chat_id = int(data_parts[2]) if len(data_parts) > 2 else query.message.chat_id
+    except (IndexError, ValueError):
+        await query.answer("Lỗi dữ liệu vé.")
+        return
+
+    user = query.from_user
+    user_id = user.id
+    
+    session = session_manager.get_session(chat_id)
+    if not session:
+        await query.answer("❌ Chưa có game nào đang chạy.", show_alert=True)
+        return
+
+    # Khởi tạo cấu trúc vé nếu chưa có
+    if not hasattr(session, "tickets"):
+        session.tickets = {}
+    if not hasattr(session, "user_tickets"):
+        session.user_tickets = {}
+
+    tickets = session.tickets
+    user_tickets = session.user_tickets
+
+    # Nếu game đã bắt đầu: không cho lấy/đổi vé nữa
+    if getattr(session, "started", False):
+        await query.answer("⏱️ Game đã bắt đầu, không thể lấy/đổi vé nữa.", show_alert=True)
+        return
+
+    holder_id = tickets.get(code)
+    current = user_tickets.get(user_id)
+
+    # Vé đang có người khác giữ
+    if holder_id is not None and holder_id != user_id:
+        await query.answer(f"⚠️ Vé {ticket_display_name(code)} đã có người khác chọn rồi.", show_alert=True)
+        return
+        
+    # Nếu bấm vào vé mình đang giữ
+    if holder_id == user_id:
+        await query.answer(f"🧾 Bạn đang giữ vé {ticket_display_name(code)} rồi.")
+        return
+
+    # Trả vé cũ nếu đang giữ vé khác
+    if current and current != code:
+        tickets.pop(current, None)
+
+    # Gán vé mới cho user
+    tickets[code] = user_id
+    user_tickets[user_id] = code
+
+    # Lấy vé = tham gia game: thêm vào danh sách người chơi nếu chưa có
+    display_name = user.full_name or (user.username or str(user_id))
+    session.add_participant(user_id=user_id, name=display_name)
+
+    # Lưu session sau khi đổi vé
+    session_manager.persist_session(chat_id)
+
+    # Trả lời nhanh
+    await query.answer(f"✅ Đã chọn {ticket_display_name(code)}!")
+
+    # Build danh sách người đã lấy vé
+    participants = []
+    if hasattr(session, "get_participants"):
+        try:
+            participants = session.get_participants()
+        except Exception:
+            participants = []
+    name_by_id = {p.get("user_id"): (p.get("name") or str(p.get("user_id"))) for p in participants if p.get("user_id") is not None}
+    people_lines = [f"- {escape_markdown(name_by_id.get(uid, str(uid)))}: {escape_markdown(ticket_display_name(c))}" for uid, c in user_tickets.items()]
+    list_text = "👥 *Danh sách người đã lấy vé:*\n" + "\n".join(people_lines) if people_lines else ""
+
+    success_msg = (
+        f"✅ {escape_markdown(display_name)} đã lấy vé: {escape_markdown(ticket_display_name(code))} và tham gia game.\n\n"
+        "Nếu bạn chọn mã vé khác trước khi game bắt đầu, vé cũ sẽ được trả lại và thay bằng vé mới."
+    )
+    if list_text:
+        success_msg += "\n\n" + list_text
+
+    await query.message.reply_text(success_msg, parse_mode="Markdown")
+
+    # Gửi ảnh vé tương ứng nếu có file
+    image_path = TICKET_IMAGES.get(code)
+    if image_path is not None and image_path.is_file():
+        try:
+            with open(image_path, "rb") as f:
+                await query.message.reply_photo(
+                    photo=f,
+                    caption=f"🎟️ Vé của bạn: {escape_markdown(ticket_display_name(code))}",
+                    parse_mode="Markdown",
+                )
+        except Exception as e:
+            logger.error("Không thể gửi ảnh vé %s: %s", code, e)
+
+    # Cập nhật lại phím bấm ở message cũ (hỗ trợ remote suffix)
+    keyboard = []
+    row = []
+    # Xác định suffix cho các nút bấm (giống logic ở đầu hàm)
+    is_remote_kb = (chat_id != query.message.chat_id)
+    kb_suffix = f":{chat_id}" if is_remote_kb else ""
+
+    for i, c in enumerate(TICKET_CODES):
+        h_id = tickets.get(c)
+        disp = ticket_display_name(c)
+        if h_id is None:
+            lbl = disp
+        elif h_id == user_id:
+            lbl = f"✅ {disp}"
+        else:
+            lbl = f"🔴 {disp}"
+
+        row.append(InlineKeyboardButton(lbl, callback_data=f"lay_ve:{c}{kb_suffix}"))
+        if len(row) == 4 or i == len(TICKET_CODES) - 1:
+            keyboard.append(row)
+            row = []
+    
+    await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(keyboard))
+
+
+async def generic_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Xử lý các lệnh từ nút bấm trong Menu (hỗ trợ điều khiển từ xa qua chat_id nhúng)"""
+    query = update.callback_query
+    data = query.data
+    
+    if not data.startswith("cmd:"):
+        return
+        
+    # data format: "cmd:action:target_chat_id"
+    parts = data.split(":")
+    command = parts[1]
+    
+    # Nếu có target_chat_id nhúng trong nút bấm
+    target_chat_id = int(parts[2]) if len(parts) > 2 else query.message.chat_id
+    
+    # Tạo một Update "giả" để truyền chat_id mục tiêu vào các handler
+    # Telegram-python-bot dùng effective_chat, effective_user để xử lý
+    # Ta sẽ ghi đè tạm thời các thuộc tính này
+    
+    class MockMessage:
+        def __init__(self, original_msg, target_id):
+            self.chat = original_msg.chat
+            self.chat_id = target_id
+            self.from_user = original_msg.from_user
+            self.text = f"/{command}"
+            self.reply_to_message = original_msg.reply_to_message
+            self.message_id = original_msg.message_id
+        
+        async def reply_text(self, *args, **kwargs):
+            # Nếu lệnh thành công, bot nên reply vào nhóm nếu là lệnh public như /quay
+            # Nhưng ở đây để đơn giản, ta reply trực tiếp vào chat hiện tại (PM) để người dùng thấy kết quả
+            return await query.message.reply_text(*args, **kwargs)
+        
+        async def reply_photo(self, *args, **kwargs):
+            return await query.message.reply_photo(*args, **kwargs)
+
+    # Tạo đối tượng Update giả lập để tránh lỗi "AttributeError: can't set attribute"
+    mock_message = MockMessage(query.message, target_chat_id)
+    mock_chat = type('MockChat', (), {'id': target_chat_id, 'type': 'supergroup'})()
+    
+    class ProxyUpdate:
+        def __init__(self, original, message, chat):
+            self.message = message
+            self.effective_message = message
+            self.effective_chat = chat
+            self.effective_user = original.effective_user
+            self.callback_query = original.callback_query
+            # Một số handler có thể dùng các thuộc tính private
+            self._effective_chat = chat
+            self._effective_user = original.effective_user
+            
+    mock_update = ProxyUpdate(update, mock_message, mock_chat)
+    
+    try:
+        if command == "lay_ve":
+            await layve_command(mock_update, context)
+        elif command == "danh_sach":
+            await players_command(mock_update, context)
+        elif command == "bat_dau":
+            await startsession_command(mock_update, context)
+        elif command == "ket_thuc":
+            await endsession_command(mock_update, context)
+        elif command == "quay":
+            await spin_command(mock_update, context)
+        elif command == "dat_lai":
+            await reset_command(mock_update, context)
+        elif command == "xep_hang":
+            await leaderboard_command(mock_update, context)
+        elif command == "trang_thai":
+            await status_command(mock_update, context)
+        elif command == "tro_giup":
+            await help_command(mock_update, context)
+        elif command == "vong_moi_input":
+            from telegram import ForceReply
+            await query.message.reply_text(
+                f"📝 *Tạo Vòng mới cho nhóm {target_chat_id}*\n\nHãy nhập tên vòng chơi mới của bạn:",
+                parse_mode="Markdown",
+                reply_markup=ForceReply(selective=True)
+            )
+            context.user_data["pending_action"] = "vong_moi"
+            context.user_data["target_chat_id"] = target_chat_id
+        elif command == "moi_input":
+            from telegram import ForceReply
+            await query.message.reply_text(
+                f"📝 *Tạo Game mới cho nhóm {target_chat_id}*\n\nHãy nhập tên ván game mới:",
+                parse_mode="Markdown",
+                reply_markup=ForceReply(selective=True)
+            )
+            context.user_data["pending_action"] = "moi"
+            context.user_data["target_chat_id"] = target_chat_id
+        elif command == "ket_thuc_vong":
+            await endround_command(mock_update, context)
+        
+        await query.answer()
+    except Exception as e:
+        logger.error(f"Error in generic_command_callback: {e}")
+        await query.answer("Có lỗi xảy ra khi thực hiện lệnh.", show_alert=True)
+
+async def handle_force_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Xử lý khi user reply lại tin nhắn nhập tên Vòng/Game"""
+    if not update.message or not update.message.text:
+        return
+        
+    action = context.user_data.get("pending_action")
+    target_chat_id = context.user_data.get("target_chat_id")
+    
+    if not action or not target_chat_id:
+        return
+        
+    text = update.message.text.strip()
+    
+    # Sử dụng ProxyUpdate để tránh lỗi can't set attribute
+    class ProxyUpdate:
+        def __init__(self, original, chat_id):
+            self.message = original.message
+            self.effective_message = original.message
+            self.effective_chat = type('MockChat', (), {'id': chat_id, 'type': 'supergroup'})()
+            self.effective_user = original.effective_user
+            # Thuộc tính private if any
+            self._effective_chat = self.effective_chat
+            self._effective_user = original.effective_user
+            
+    mock_update = ProxyUpdate(update, target_chat_id)
+    context.args = [text] 
+    
+    try:
+        if action == "vong_moi":
+            await vongmoi_command(mock_update, context)
+        elif action == "moi":
+            await newsession_command(mock_update, context)
+            
+        # Xoá trạng thái chờ
+        del context.user_data["pending_action"]
+        del context.user_data["target_chat_id"]
+    except Exception as e:
+        logger.error(f"Error in handle_force_reply: {e}")
+        await update.message.reply_text(f"❌ Có lỗi khi tạo: {e}")
+
+
 
 def setup_bot(token: str) -> Application:
     """Setup và trả về Application instance"""
-    application = Application.builder().token(token).build()
+    # Xây dựng application và thêm một callback để set commands sau khi start
+    async def post_init(application: Application) -> None:
+        await application.bot.set_my_commands([
+            ("start", "Hướng dẫn"),
+            ("menu", "Menu riêng tư (Private)"),
+            ("moi", "Tạo game mới"),
+            ("lay_ve", "Lấy vé"),
+            ("quay", "Quay số"),
+            ("kinh", "Kiểm tra vé"),
+            ("trang_thai", "Trạng thái"),
+            ("ket_thuc", "Kết thúc game")
+        ])
+
+    application = Application.builder().token(token).post_init(post_init).build()
     
     # Register command handlers cơ bản
     application.add_handler(CommandHandler("start", start_command))
@@ -1537,6 +1902,9 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("tham_gia", join_command))
     application.add_handler(CommandHandler("danh_sach", players_command))
     application.add_handler(CommandHandler("lay_ve", layve_command))
+    application.add_handler(CallbackQueryHandler(lay_ve_callback, pattern="^lay_ve:"))
+    application.add_handler(CallbackQueryHandler(generic_command_callback, pattern="^cmd:"))
+    application.add_handler(MessageHandler(filters.REPLY & filters.TEXT & filters.ChatType.PRIVATE, handle_force_reply))
     application.add_handler(CommandHandler("tra_ve", out_command))
     application.add_handler(CommandHandler("quay", spin_command))
     application.add_handler(CommandHandler("kinh", check_command))
