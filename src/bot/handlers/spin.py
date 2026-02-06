@@ -67,7 +67,11 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message += "\n\n⚠️ Danh sách đã hết\\! Sử dụng `/reset` để làm mới\\."
             keyboard = [[InlineKeyboardButton("🔄 Reset số", callback_data=f"cmd:dat_lai{suffix}")]]
         
-        keyboard.append([InlineKeyboardButton("🧾 Kiểm tra vé (/kinh)", switch_inline_query_current_chat="/kinh ")])
+        keyboard.append([InlineKeyboardButton("🧾 Kiểm tra vé (/kinh)", switch_inline_query_current_chat="kinh ")])
+        keyboard.append([
+            InlineKeyboardButton("🛑 Kết thúc Game", callback_data=f"cmd:ket_thuc{suffix}"),
+            InlineKeyboardButton("🕹️ Game mới", callback_data=f"cmd:moi_input{suffix}")
+        ])
 
         await update.message.reply_text(message, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
         session_manager.persist_session(chat_id)
@@ -117,7 +121,9 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown',
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🎲 Quay số", callback_data=f"cmd:quay{suffix}"),
-             InlineKeyboardButton("👥 Danh sách", callback_data=f"cmd:danh_sach{suffix}")]
+             InlineKeyboardButton("👥 Danh sách", callback_data=f"cmd:danh_sach{suffix}")],
+            [InlineKeyboardButton("🛑 Kết thúc Game", callback_data=f"cmd:ket_thuc{suffix}"),
+             InlineKeyboardButton("🕹️ Game mới", callback_data=f"cmd:moi_input{suffix}")]
         ])
     )
 
