@@ -109,6 +109,31 @@ TICKET_IMAGES: dict[str, Path] = {
     "xanh2": Path(__file__).parent.parent.parent / "images" / "xanh_2.jpg",
 }
 
+# Map mã vé -> tên hiển thị (tiếng Việt)
+TICKET_DISPLAY_NAMES: dict[str, str] = {
+    "cam1": "Cam số 1",
+    "cam2": "Cam số 2",
+    "do1": "Đổ số 1",
+    "do2": "Đổ số 2",
+    "duong1": "Đường số 1",
+    "duong2": "Đường số 2",
+    "hong1": "Hồng số 1",
+    "hong2": "Hồng số 2",
+    "luc1": "Lục số 1",
+    "luc2": "Lục số 2",
+    "tim1": "Tím số 1",
+    "tim2": "Tím số 2",
+    "vang1": "Vàng số 1",
+    "vang2": "Vàng số 2",
+    "xanh1": "Xanh số 1",
+    "xanh2": "Xanh số 2",
+}
+
+
+def ticket_display_name(code: str) -> str:
+    """Trả về tên hiển thị của vé, hoặc mã gốc nếu không có map."""
+    return TICKET_DISPLAY_NAMES.get(code, code)
+
 
 def escape_markdown(text: str) -> str:
     """Escape các ký tự đặc biệt trong Markdown"""
@@ -1356,7 +1381,7 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         current = user_tickets.get(user_id)
         if current:
             await update.message.reply_text(
-                f"ℹ️ Game đã bắt đầu\\. Vé của bạn là: `{current}`\\. "
+                f"ℹ️ Game đã bắt đầu\\. Vé của bạn là: {escape_markdown(ticket_display_name(current))}\\. "
                 "Không thể đổi vé nữa.",
                 parse_mode="Markdown",
             )
@@ -1381,11 +1406,11 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 status = "🔴 *Đã có người lấy*"
 
-            lines.append(f"- `{code}` → {status}")
+            lines.append(f"- {escape_markdown(ticket_display_name(code))} → {status}")
 
         header = "🎟️ *Danh sách vé hiện có:*\n\n"
         if current:
-            header += f"🧾 Vé hiện tại của bạn: `{current}`\n\n"
+            header += f"🧾 Vé hiện tại của bạn: {escape_markdown(ticket_display_name(current))}\n\n"
         else:
             header += "🧾 Bạn chưa chọn vé nào\\.\n\n"
         
@@ -1407,7 +1432,7 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         for uid, code in user_tickets.items():
             display_name = name_by_id.get(uid, str(uid))
-            people_lines.append(f"- {escape_markdown(display_name)}: `{code}`")
+            people_lines.append(f"- {escape_markdown(display_name)}: {escape_markdown(ticket_display_name(code))}")
 
         if people_lines:
             header += "👥 *Danh sách người đã lấy vé:*\n" + "\n".join(people_lines) + "\n\n"
@@ -1425,9 +1450,10 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     code = context.args[0].lower()
 
     if code not in TICKET_CODES:
+        valid_list = ", ".join(f"{escape_markdown(ticket_display_name(c))} (\`{c}\`)" for c in TICKET_CODES)
         await update.message.reply_text(
             "❌ *Mã vé không hợp lệ\\!*\n\n"
-            f"Các vé hợp lệ: {', '.join(f'`{c}`' for c in TICKET_CODES)}",
+            f"Các vé hợp lệ: {valid_list}",
             parse_mode="Markdown",
         )
         return
@@ -1438,7 +1464,7 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Vé đang có người khác giữ
     if holder_id is not None and holder_id != user_id:
         await update.message.reply_text(
-            f"⚠️ Vé `{code}` đã có người khác chọn rồi, bạn hãy chọn mã vé khác nhé.",
+            f"⚠️ Vé {escape_markdown(ticket_display_name(code))} đã có người khác chọn rồi, bạn hãy chọn mã vé khác nhé.",
             parse_mode="Markdown",
         )
         return
@@ -1466,11 +1492,11 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             participants = []
     name_by_id = {p.get("user_id"): (p.get("name") or str(p.get("user_id"))) for p in participants if p.get("user_id") is not None}
-    people_lines = [f"- {escape_markdown(name_by_id.get(uid, str(uid)))}: `{c}`" for uid, c in user_tickets.items()]
+    people_lines = [f"- {escape_markdown(name_by_id.get(uid, str(uid)))}: {escape_markdown(ticket_display_name(c))}" for uid, c in user_tickets.items()]
     list_text = "👥 *Danh sách người đã lấy vé:*\n" + "\n".join(people_lines) if people_lines else ""
 
     success_msg = (
-        f"✅ Bạn đã lấy vé: `{code}` và tham gia game.\n\n"
+        f"✅ Bạn đã lấy vé: {escape_markdown(ticket_display_name(code))} và tham gia game.\n\n"
         "Nếu bạn gọi `/lay_ve <mã_vé_khác>` trước khi game bắt đầu, vé cũ sẽ được trả lại và thay bằng vé mới."
     )
     if list_text:
@@ -1485,7 +1511,7 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             with open(image_path, "rb") as f:
                 await update.message.reply_photo(
                     photo=f,
-                    caption=f"🎟️ Vé của bạn: `{code}`",
+                    caption=f"🎟️ Vé của bạn: {escape_markdown(ticket_display_name(code))}",
                     parse_mode="Markdown",
                 )
         except Exception as e:
