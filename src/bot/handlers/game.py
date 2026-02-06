@@ -52,11 +52,16 @@ async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Kiểm tra nếu đã có vòng đang hoạt động
     if chat_id in active_rounds:
         current_round = active_rounds[chat_id].get("round_name", "Không tên")
+        target_chat_id = chat_id
+        suffix = f":{target_chat_id}"
         await update.message.reply_text(
             f"⚠️ *Đang có vòng chơi hoạt động\\!*\n\n"
             f"Vòng: `{escape_markdown(current_round)}`\n"
-            f"Vui lòng dùng `/ket_thuc_vong` để kết thúc vòng cũ trước khi tạo vòng mới\\.",
+            f"Vui lòng kết thúc vòng cũ trước khi tạo vòng mới\\.",
             parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🏁 Kết thúc Vòng cũ", callback_data=f"cmd:ket_thuc_vong{suffix}")]
+            ])
         )
         return
 
@@ -425,9 +430,15 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     owner_id = getattr(session, "owner_id", user_id)
     if owner_id != user_id:
+        target_chat_id = chat_id
+        suffix = f":{target_chat_id}"
         await update.message.reply_text(
             "❌ Chỉ *host* (người tạo game) mới được quyền kết thúc game với `/ket_thuc`.",
-            parse_mode='Markdown'
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎲 Quay số", callback_data=f"cmd:quay{suffix}"),
+                 InlineKeyboardButton("📊 Trạng thái", callback_data=f"cmd:trang_thai{suffix}")]
+            ])
         )
         return
 

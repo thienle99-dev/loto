@@ -127,7 +127,15 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     session = session_manager.get_session(chat_id)
 
     if not session or not session.history:
-        await update.message.reply_text("ℹ️ Chưa có lịch sử quay số trong game này.", parse_mode='Markdown')
+        target_chat_id = chat_id
+        suffix = f":{target_chat_id}"
+        await update.message.reply_text(
+            "ℹ️ Chưa có lịch sử quay số trong game này.", 
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎲 Quay ngay", callback_data=f"cmd:quay{suffix}")]
+            ])
+        )
         return
 
     lines = []
@@ -166,7 +174,15 @@ async def lastresult_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     data = get_last_result_for_chat(chat_id)
 
     if not data:
-        await update.message.reply_text("ℹ️ Chưa có game nào kết thúc trong chat này.", parse_mode='Markdown')
+        target_chat_id = chat_id
+        suffix = f":{target_chat_id}"
+        await update.message.reply_text(
+            "ℹ️ Chưa có game nào kết thúc trong chat này.", 
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🕹️ Game mới", callback_data=f"cmd:moi_input{suffix}")]
+            ])
+        )
         return
 
     game_name = data.get("game_name") or "Không đặt tên"
