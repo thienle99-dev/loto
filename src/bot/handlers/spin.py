@@ -52,23 +52,21 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Hiển thị kết quả
         drawn_numbers = [item.get("number") for item in session.history[-5:]]
         
-        # Convert số sang Unicode bold để to hơn
-        def to_bold_digits(num):
-            """Convert số thành Unicode Mathematical Bold Digits"""
-            bold_map = {
-                '0': '𝟎', '1': '𝟏', '2': '𝟐', '3': '𝟑', '4': '𝟒',
-                '5': '𝟓', '6': '𝟔', '7': '𝟕', '8': '𝟖', '9': '𝟗'
+        # Convert số sang Emoji Keycap (0️⃣, 1️⃣...)
+        def to_emoji_digits(num):
+            """Convert số thành Emoji Keycap"""
+            emoji_map = {
+                '0': '0️⃣', '1': '1️⃣', '2': '2️⃣', '3': '3️⃣', '4': '4️⃣',
+                '5': '5️⃣', '6': '6️⃣', '7': '7️⃣', '8': '8️⃣', '9': '9️⃣'
             }
-            return ''.join(bold_map.get(c, c) for c in str(num))
+            return ' '.join(emoji_map.get(c, c) for c in str(num))
         
-        bold_number = to_bold_digits(number)
+        emoji_number = to_emoji_digits(number)
         
         # SỐ TRÚNG THƯỞNG nổi bật với số to
         message = "🎊🎊🎊🎊🎊🎊🎊🎊🎊\n\n"
         message += f"🎯 *SỐ TRÚNG THƯỞNG*\n\n"
-        message += f"╔═══════════════╗\n"
-        message += f"║      {bold_number}      ║\n"
-        message += f"╚═══════════════╝\n\n"
+        message += f"     {emoji_number}\n\n"
         message += "🎊🎊🎊🎊🎊🎊🎊🎊🎊\n\n"
         
         # Hiển thị lịch sử gần đây theo dọc (mới nhất ở trên)
