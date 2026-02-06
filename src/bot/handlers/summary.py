@@ -1,7 +1,7 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from src.bot.utils import escape_markdown, session_manager
+from src.bot.utils import escape_markdown, session_manager, get_chat_stats
 from src.bot.constants import active_rounds, round_history
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,10 @@ async def summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='Markdown'
         )
         return
+    
+    # Lấy thống kê token
+    chat_stats = get_chat_stats(chat_id)
+    wins = chat_stats.get("wins", {})
     
     # Tạo message tổng kết
     message = "📊 *TỔNG KẾT VÒNG CHƠI*\n\n"
@@ -74,12 +78,15 @@ async def summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message += "   ℹ️ Không có người thắng\n"
         message += "\n"
         
-        # Người tham gia
+        # Người tham gia với token
         if participants:
             message += "👥 *Người chơi:*\n"
             for p in participants:
                 name = p.get("name", "Không rõ")
-                message += f"   • {escape_markdown(name)}\n"
+                uid = p.get("user_id")
+                token_count = wins.get(uid, {}).get("count", 0.0) if uid else 0.0
+                token_str = f" \\- Token: `{token_count:+.1f}`" if token_count != 0 else " \\- Token: `0.0`"
+                message += f"   • {escape_markdown(name)}{token_str}\n"
         message += "\n"
         
         message += "━━━━━━━━━━━━━━━━━━━\n\n"
