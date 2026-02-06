@@ -4,6 +4,10 @@ from pathlib import Path
 # {chat_id: {"round_name": str, "owner_id": int, "created_at": str}}
 active_rounds: dict[int, dict] = {}
 
+# Cấu hình mặc định cho ván game
+MAX_NUMBERS = 90
+DEFAULT_REMOVE_AFTER_SPIN = True
+
 # Cooldown chống spam
 COOLDOWN_SPIN_SECONDS = 2
 COOLDOWN_CHECK_SECONDS = 2

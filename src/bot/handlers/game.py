@@ -101,6 +101,20 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user = update.effective_user
     user_id = user.id
 
+    if chat_id not in active_rounds:
+        target_chat_id = chat_id
+        suffix = f":{target_chat_id}"
+        await update.message.reply_text(
+            "⚠️ *Bạn cần tạo vòng chơi trước khi tạo game\\!*\n\n"
+            "Việc tạo vòng giúp bot thống kê điểm và lưu lịch sử chính xác hơn.\n"
+            "Hãy dùng nút bên dưới hoặc gõ `/vong_moi <tên_vòng>`.",
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔄 Tạo Vòng mới", callback_data=f"cmd:vong_moi_input{suffix}")]
+            ])
+        )
+        return
+
     if session_manager.has_session(chat_id):
         await update.message.reply_text(
             "⚠️ Chat này đang có game hoạt động\\. "
@@ -171,6 +185,19 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     
+    if chat_id not in active_rounds:
+        target_chat_id = chat_id
+        suffix = f":{target_chat_id}"
+        await update.message.reply_text(
+            "⚠️ *Bạn cần tạo vòng chơi trước khi tạo game\\!*\n\n"
+            "Hãy dùng nút bên dưới hoặc gõ `/vong_moi <tên_vòng>`.",
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔄 Tạo Vòng mới", callback_data=f"cmd:vong_moi_input{suffix}")]
+            ])
+        )
+        return
+
     if session_manager.has_session(chat_id):
         await update.message.reply_text(
             "⚠️ Chat này đang có game hoạt động\\. "
