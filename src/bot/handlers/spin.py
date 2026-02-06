@@ -67,8 +67,9 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # 2. Phần thống kê và nút bấm (Header + Gần đây)
         header_text = random.choice(SPIN_HEADERS)
-        stats_msg = f"{header_text} `{number}`\n"
-        stats_msg += "━━━━━━━━━━━━━━━━━━━\n"
+        stats_msg =  "╔════════════════════╗\n"
+        stats_msg += f"   {header_text} `{number}`\n"
+        stats_msg += "╚════════════════════╝\n"
         
         # Hiển thị lịch sử gần đây
         if drawn_numbers:
