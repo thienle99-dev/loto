@@ -1,7 +1,7 @@
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from src.bot.constants import active_rounds, MAX_NUMBERS, DEFAULT_REMOVE_AFTER_SPIN, last_results
+from src.bot.constants import active_rounds, round_history, MAX_NUMBERS, DEFAULT_REMOVE_AFTER_SPIN, last_results
 from src.bot.utils import escape_markdown, session_manager, get_chat_stats
 from src.utils.validators import validate_range, validate_number
 from src.db.sqlite_store import save_stats, save_last_result, save_active_round, delete_active_round_row
@@ -72,6 +72,9 @@ async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "created_at": datetime.now().isoformat(timespec="seconds"),
     }
     save_active_round(chat_id, active_rounds[chat_id])
+    
+    # Khởi tạo lịch sử game cho vòng mới
+    round_history[chat_id] = []
 
     target_chat_id = chat_id
     suffix = f":{target_chat_id}"
@@ -133,6 +136,10 @@ async def endround_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 3. Xoá vòng chơi khỏi active_rounds (RAM) và DB
     del active_rounds[chat_id]
     delete_active_round_row(chat_id)
+    
+    # Xóa lịch sử game của vòng
+    if chat_id in round_history:
+        del round_history[chat_id]
     
     target_chat_id = chat_id
     suffix = f":{target_chat_id}"
@@ -479,6 +486,22 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     last_results[chat_id] = result_data
     save_stats(chat_id, chat_stats)
     save_last_result(chat_id, result_data)
+    
+    # Lưu game vào lịch sử vòng chơi
+    if chat_id in active_rounds:
+        if chat_id not in round_history:
+            round_history[chat_id] = []
+        
+        game_record = {
+            "game_name": game_name,
+            "host_name": host_name,
+            "winners": list(getattr(session, "winners", [])),
+            "participants": session.get_participants(),
+            "numbers_drawn": len(session.history),
+            "ended_at": datetime.now().isoformat(timespec="seconds"),
+        }
+        round_history[chat_id].append(game_record)
+    
     session_manager.delete_session(chat_id)
 
     target_chat_id = chat_id

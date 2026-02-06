@@ -48,6 +48,9 @@ from src.bot.handlers.player import (
     lay_ve_callback
 )
 
+# Import summary handlers
+from src.bot.handlers.summary import summary_command
+
 # Import spin/status handlers
 from src.bot.handlers.spin import (
     spin_command,
@@ -104,6 +107,7 @@ def setup_bot(token: str) -> Application:
             ("lay_ve", "Chọn màu vé"),
             ("trang_thai", "Trạng thái"),
             ("ket_thuc", "Kết thúc game"),
+            ("tong_ket", "Tổng kết game"),
             ("tro_giup", "Trợ giúp")
         ])
 
@@ -139,6 +143,7 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("dat_lai", reset_command))
     application.add_handler(CommandHandler("xoa", clear_command))
     application.add_handler(CommandHandler("ket_qua", lastresult_command))
+    application.add_handler(CommandHandler("tong_ket", summary_command))
     application.add_handler(CommandHandler("xep_hang", leaderboard_command))
     application.add_handler(CommandHandler("tro_giup", help_command))
 
