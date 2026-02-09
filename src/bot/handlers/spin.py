@@ -65,13 +65,26 @@ async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool
                 pass # Bỏ qua nếu tin nhắn quá cũ hoặc đã bị xoá
 
         # Gọi số bằng âm thanh
-        voice_file = get_voice_calling_file(number)
-        if voice_file:
+        from src.db.sqlite_store import get_voice_cache, save_voice_cache
+        
+        cached_voice_id = get_voice_cache(number)
+        if cached_voice_id:
             try:
-                with open(voice_file, "rb") as vf:
-                    await context.bot.send_voice(chat_id=chat_id, voice=vf)
-            except Exception as e:
-                logger.error(f"Lỗi khi gửi voice: {e}")
+                await context.bot.send_voice(chat_id=chat_id, voice=cached_voice_id)
+                voice_sent = True
+            except Exception:
+                cached_voice_id = None
+
+        if not cached_voice_id:
+            voice_file = get_voice_calling_file(number)
+            if voice_file:
+                try:
+                    with open(voice_file, "rb") as vf:
+                        sent_voice = await context.bot.send_voice(chat_id=chat_id, voice=vf)
+                        if sent_voice and sent_voice.voice:
+                            save_voice_cache(number, sent_voice.voice.file_id)
+                except Exception as e:
+                    logger.error(f"Lỗi khi gửi voice: {e}")
 
         await context.bot.send_message(chat_id=chat_id, text=full_emoji_str)
         

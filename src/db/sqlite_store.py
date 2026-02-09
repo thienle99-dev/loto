@@ -299,3 +299,35 @@ def get_photo_cache(ticket_code: str) -> Optional[str]:
     if row:
         return row["file_id"]
     return None
+
+# ---------- Voice Cache ----------
+def save_voice_cache(number: int, file_id: str) -> None:
+    """Lưu file_id của voice vào cache."""
+    conn = get_connection()
+    cur = conn.cursor()
+    now = datetime.now().isoformat(timespec="seconds")
+    
+    cur.execute(
+        """
+        INSERT INTO voice_cache(number, file_id, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(number) DO UPDATE SET
+            file_id = excluded.file_id,
+            updated_at = excluded.updated_at
+        """,
+        (number, file_id, now),
+    )
+    conn.commit()
+    conn.close()
+
+def get_voice_cache(number: int) -> Optional[str]:
+    """Lấy file_id của voice từ cache if exists."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT file_id FROM voice_cache WHERE number = ?", (number,))
+    row = cur.fetchone()
+    conn.close()
+    
+    if row:
+        return row["file_id"]
+    return None

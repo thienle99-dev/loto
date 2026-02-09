@@ -147,6 +147,7 @@ async def generic_command_callback(update: Update, context: ContextTypes.DEFAULT
             self.effective_chat = chat
             self.effective_user = original.effective_user
             self.callback_query = original.callback_query
+            self.update_id = original.update_id
             self._effective_chat = chat
             self._effective_user = original.effective_user
             
@@ -256,6 +257,7 @@ async def handle_force_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
             self.effective_message = original.message
             self.effective_chat = type('MockChat', (), {'id': chat_id, 'type': 'supergroup'})()
             self.effective_user = original.effective_user
+            self.update_id = original.update_id
             self._effective_chat = self.effective_chat
             self._effective_user = original.effective_user
             
