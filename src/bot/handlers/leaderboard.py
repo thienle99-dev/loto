@@ -150,13 +150,16 @@ async def show_user_token_command(update: Update, context: ContextTypes.DEFAULT_
             return
 
         players = sorted(user_tokens.values(), key=lambda x: x["token"], reverse=True)
-        message = f"📊 *DANH SÁCH TOKEN VÒNG: {escape_markdown(round_name)}*\n"
+        
+        # Build message without over-escaping
+        message = f"📊 *DANH SÁCH TOKEN VÒNG: {round_name}*\n"
         message += "━━━━━━━━━━━━━━━━━━━\n\n"
         
         for p in players:
             token = p["token"]
             txt_token = f"+{token:.1f}" if token > 0 else f"{token:.1f}"
-            message += f"• {escape_markdown(p['name'])}: `{txt_token}`\n"
+            name = escape_markdown(p['name'])
+            message += f"• {name}: `{txt_token}`\n"
             
         message += "\n━━━━━━━━━━━━━━━━━━━"
         

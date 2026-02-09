@@ -1,4 +1,5 @@
 from datetime import datetime
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from src.bot.constants import active_rounds, round_history, MAX_NUMBERS, DEFAULT_REMOVE_AFTER_SPIN, last_results, BET_AMOUNT, COOLDOWN_CHECK_SECONDS
@@ -6,6 +7,8 @@ from src.bot.utils import escape_markdown, session_manager, get_chat_stats, ensu
 from src.utils.validators import validate_range, validate_number
 from src.db.sqlite_store import save_stats, save_last_result, save_active_round, delete_active_round_row
 from src.bot.worker import queued_handler
+
+logger = logging.getLogger(__name__)
 
 # Cache thời gian kiểm tra kinh của từng user: {(chat_id, user_id): datetime}
 last_check_time: dict[tuple[int, int], datetime] = {}
