@@ -156,27 +156,27 @@ async def generic_command_callback(update: Update, context: ContextTypes.DEFAULT
     mock_update = ProxyUpdate(update, mock_message, mock_chat)
     
     # Import handlers here to avoid circular dependencies
-    from src.bot.handlers.game import vongmoi_command, endround_command, newsession_command, startsession_command, endsession_command
-    from src.bot.handlers.player import layve_command, players_command
-    from src.bot.handlers.spin import spin_command, reset_command, leaderboard_command, status_command, lastresult_command
+    from src.bot.handlers.game import vongmoi_command, endround_command, newsession_command_logic, startsession_command_logic, endsession_command_logic
+    from src.bot.handlers.player import layve_command_logic, players_command_logic
+    from src.bot.handlers.spin import spin_command_logic, reset_command_logic, leaderboard_command_logic, status_command_logic, lastresult_command_logic
 
     try:
         if command == "lay_ve":
-            await layve_command(mock_update, context)
+            await layve_command_logic(mock_update, context)
         elif command == "danh_sach":
-            await players_command(mock_update, context)
+            await players_command_logic(mock_update, context)
         elif command == "bat_dau":
-            await startsession_command(mock_update, context)
+            await startsession_command_logic(mock_update, context)
         elif command == "ket_thuc":
-            await endsession_command(mock_update, context)
+            await endsession_command_logic(mock_update, context)
         elif command == "quay":
-            await spin_command(mock_update, context)
+            await spin_command_logic(mock_update, context)
         elif command == "dat_lai":
-            await reset_command(mock_update, context)
+            await reset_command_logic(mock_update, context)
         elif command == "xep_hang":
-            await leaderboard_command(mock_update, context)
+            await leaderboard_command_logic(mock_update, context)
         elif command == "trang_thai":
-            await status_command(mock_update, context)
+            await status_command_logic(mock_update, context)
         elif command == "tro_giup":
             await help_command(mock_update, context)
         elif command == "menu_fallback":

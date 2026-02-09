@@ -74,9 +74,8 @@ async def out_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎟️ Lấy vé ngay", callback_data=f"cmd:lay_ve{suffix}")]])
         )
 
-@queued_handler
-async def players_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /danh_sach - hiển thị danh sách người tham gia game"""
+async def players_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Logic hiển thị danh sách người tham gia game"""
     chat_id = update.effective_chat.id
     session = session_manager.get_session(chat_id)
 
@@ -133,8 +132,12 @@ async def players_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 @queued_handler
-async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /lay_ve"""
+async def players_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /danh_sach - hiển thị danh sách người tham gia game"""
+    await players_command_logic(update, context)
+
+async def layve_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Logic xử lý lệnh /lay_ve"""
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
@@ -257,6 +260,11 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     save_photo_cache(code, sent_photo.photo[-1].file_id)
         except Exception as e:
             logger.error("Không thể gửi ảnh vé %s: %s", code, e)
+
+@queued_handler
+async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /lay_ve"""
+    await layve_command_logic(update, context)
 
 async def lay_ve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Xử lý khi người dùng chọn vé qua menu nút bấm"""

@@ -162,8 +162,8 @@ async def spin_job(context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=chat_id, text="🛑 *Dừng quay tự động* (Game đã kết thúc hoặc hết số).", parse_mode='Markdown')
 
 @queued_handler
-async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /quay"""
+async def spin_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Logic xử lý lệnh /quay"""
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
     session = session_manager.get_session(chat_id)
@@ -219,7 +219,16 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await perform_spin(chat_id, context)
     except ValueError as e:
-        await update.message.reply_text(f"❌ {str(e)}")
+        query = update.callback_query
+        if query:
+            await query.answer(f"❌ {str(e)}", show_alert=True)
+        else:
+            await update.message.reply_text(f"❌ {str(e)}")
+
+@queued_handler
+async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /quay"""
+    await spin_command_logic(update, context)
 
 @queued_handler
 async def stop_spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -241,8 +250,8 @@ async def stop_spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🛑 *Đã dừng quay tự động\\.*", parse_mode='Markdown')
 
 
-async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /dat_lai (reset các số đã quay)"""
+async def reset_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Logic xử lý lệnh /dat_lai (reset các số đã quay)"""
     chat_id = update.effective_chat.id
     session = session_manager.get_session(chat_id)
     
@@ -256,8 +265,13 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("🔄 *Đã làm mới danh sách số quay\\!* \n\nGiờ bạn có thể bắt đầu quay từ đầu.", parse_mode='Markdown')
 
-async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /trang_thai"""
+@queued_handler
+async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /dat_lai"""
+    await reset_command_logic(update, context)
+
+async def status_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Logic xử lý lệnh /trang_thai"""
     chat_id = update.effective_chat.id
     session = session_manager.get_session(chat_id)
     
@@ -299,6 +313,11 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     session.last_control_message_id = sent_msg.message_id
     session_manager.persist_session(chat_id)
+
+@queued_handler
+async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /trang_thai"""
+    await status_command_logic(update, context)
 
 async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /lich_su"""
@@ -347,8 +366,8 @@ async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🕹️ Tạo Game mới", callback_data=f"cmd:moi_input{suffix}")]])
     )
 
-async def lastresult_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /ket_qua"""
+async def lastresult_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Logic xử lý lệnh /ket_qua"""
     chat_id = update.effective_chat.id
     data = get_last_result_for_chat(chat_id)
 
@@ -405,8 +424,13 @@ async def lastresult_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         ])
     )
 
-async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /xep_hang"""
+@queued_handler
+async def lastresult_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /ket_qua"""
+    await lastresult_command_logic(update, context)
+
+async def leaderboard_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Logic xử lý lệnh /xep_hang"""
     chat_id = update.effective_chat.id
     chat_stats = get_chat_stats(chat_id)
 
@@ -444,6 +468,11 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
              InlineKeyboardButton("🎲 Quay số", callback_data=f"cmd:quay{suffix}")]
         ])
     )
+
+@queued_handler
+async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /xep_hang"""
+    await leaderboard_command_logic(update, context)
 
 @queued_handler
 async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):

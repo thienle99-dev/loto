@@ -1,11 +1,14 @@
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from src.bot.constants import active_rounds, round_history, MAX_NUMBERS, DEFAULT_REMOVE_AFTER_SPIN, last_results, BET_AMOUNT
-from src.bot.utils import escape_markdown, session_manager, get_chat_stats
+from src.bot.constants import active_rounds, round_history, MAX_NUMBERS, DEFAULT_REMOVE_AFTER_SPIN, last_results, BET_AMOUNT, COOLDOWN_CHECK_SECONDS
+from src.bot.utils import escape_markdown, session_manager, get_chat_stats, ensure_active_session
 from src.utils.validators import validate_range, validate_number
 from src.db.sqlite_store import save_stats, save_last_result, save_active_round, delete_active_round_row
 from src.bot.worker import queued_handler
+
+# Cache thời gian kiểm tra kinh của từng user: {(chat_id, user_id): datetime}
+last_check_time: dict[tuple[int, int], datetime] = {}
 
 async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /vong_moi <tên_vòng> - tạo vòng chơi mới trong chat."""
@@ -167,9 +170,8 @@ async def endround_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
     )
 
-@queued_handler
-async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /moi <tên_game>"""
+async def newsession_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Logic xử lý lệnh /moi <tên_game>"""
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
@@ -265,6 +267,11 @@ async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
     except ValueError as e:
         await update.message.reply_text(f"❌ Lỗi: {str(e)}")
+
+@queued_handler
+async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /moi <tên_game>"""
+    await newsession_command_logic(update, context)
 
 async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /pham_vi <x> <y>"""
@@ -368,9 +375,8 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except ValueError as e:
         await update.message.reply_text(f"❌ Lỗi: {str(e)}")
 
-@queued_handler
-async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /bat_dau - host bấm để bắt đầu game"""
+async def startsession_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Logic xử lý lệnh /bat_dau"""
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
@@ -439,8 +445,12 @@ async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYP
     session_manager.persist_session(chat_id)
 
 @queued_handler
-async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /ket_thuc"""
+async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /bat_dau - host bấm để bắt đầu game"""
+    await startsession_command_logic(update, context)
+
+async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Logic xử lý lệnh /ket_thuc"""
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
@@ -598,16 +608,108 @@ async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     msg = f"🛑 *Đã kết thúc ván chơi* `{escape_markdown(game_name)}`\\.\n\n" if game_name else \
           "🛑 *Đã kết thúc game hiện tại\\!* \n\n"
     msg += "Bạn có thể tạo ván chơi mới hoặc vòng mới bằng nút bên dưới\\."
-    msg += token_changes_msg
 
     await update.message.reply_text(
-        msg, 
+        msg + token_changes_msg, 
         parse_mode='Markdown',
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🔄 Vòng mới", callback_data=f"cmd:vong_moi_input{suffix}"),
              InlineKeyboardButton("🕹️ Game mới", callback_data=f"cmd:moi_input{suffix}")]
         ])
     )
+
+@queued_handler
+async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /ket_thuc"""
+    await endsession_command_logic(update, context)
+
+async def check_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Logic xử lý lệnh /kinh"""
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+    session = session_manager.get_session(chat_id)
+
+    key = (chat_id, user.id)
+    now = datetime.now()
+    if last_check_time.get(key) and (now - last_check_time[key]).total_seconds() < COOLDOWN_CHECK_SECONDS:
+        await update.message.reply_text("⏱️ Đợi vài giây rồi thử lại nhé.", parse_mode='Markdown')
+        return
+
+    if not session:
+        await update.message.reply_text("❌ *Chưa có game nào!*", parse_mode='Markdown')
+        return
+
+    if not await ensure_active_session(update, chat_id, session):
+        return
+
+    if not getattr(session, "started", False):
+        await update.message.reply_text("⏱️ *Game chưa bắt đầu!*", parse_mode='Markdown')
+        return
+
+    user_tickets = getattr(session, "user_tickets", {})
+    if user.id not in user_tickets:
+        await update.message.reply_text("🎟️ *Bạn cần lấy vé trước khi chơi!*", parse_mode='Markdown')
+        return
+
+    if not context.args:
+        await update.message.reply_text("❌ *Sai cú pháp!* /kinh <danh_sách_số>", parse_mode='Markdown')
+        return
+
+    raw_text = " ".join(context.args)
+    for ch in [",", ";", "|"]: raw_text = raw_text.replace(ch, " ")
+    tokens = [t for t in raw_text.split() if t.strip()]
+
+    drawn_numbers = {item.get("number") for item in session.history}
+    remaining_numbers = set(session.available_numbers)
+
+    matched, not_drawn, invalid = [], [], []
+
+    for token in tokens:
+        is_valid, number, error = validate_number(token)
+        if not is_valid or number < session.start_number or number > session.end_number:
+            invalid.append(token)
+        elif number in drawn_numbers:
+            matched.append(number)
+        elif number in remaining_numbers:
+            not_drawn.append(number)
+        else:
+            invalid.append(token)
+
+    is_winner = len(set(matched)) >= 5 and not not_drawn and not invalid
+    lines = []
+    if matched: lines.append(f"✅ *Số đã quay*: " + ", ".join(f"`{n}`" for n in sorted(set(matched))))
+    if not_drawn: lines.append(f"⭕ *Số chưa quay*: " + ", ".join(f"`{n}`" for n in sorted(set(not_drawn))))
+    if invalid: lines.append(f"⚠️ *Không hợp lệ*: " + ", ".join(f"`{n}`" for n in sorted(set(invalid))))
+    
+    if is_winner:
+        display_name = user.full_name or str(user.id)
+        winner_set = sorted(set(matched))
+        if not hasattr(session, "winners"): session.winners = []
+        session.winners.append({"user_id": user.id, "name": display_name, "numbers": winner_set, "time": now.isoformat(timespec="seconds")})
+        session_manager.persist_session(chat_id)
+        lines.append(f"\n🏆 *Chúc mừng* {escape_markdown(display_name)} *!* \nVé trúng thưởng: " + ", ".join(f"`{n}`" for n in winner_set))
+
+    target_chat_id = chat_id
+    suffix = f":{target_chat_id}"
+
+    keyboard = [[InlineKeyboardButton("🎲 Quay tiếp", callback_data=f"cmd:quay{suffix}")]]
+    if is_winner:
+        keyboard.append([
+            InlineKeyboardButton("🏆 Xem kết quả", callback_data=f"cmd:ket_qua{suffix}"),
+            InlineKeyboardButton("🛑 Kết thúc Game", callback_data=f"cmd:ket_thuc{suffix}")
+        ])
+
+    await update.message.reply_text(
+        "📎 *Kết quả kiểm tra:*\n\n" + "\n".join(lines or ["ℹ️ Không có kết quả."]), 
+        parse_mode='Markdown',
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    last_check_time[key] = now
+
+@queued_handler
+async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /kinh"""
+    await check_command_logic(update, context)
 
 async def toggle_remove_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /toggle_remove"""
