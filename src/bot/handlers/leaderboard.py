@@ -124,24 +124,42 @@ async def show_user_token_command(update: Update, context: ContextTypes.DEFAULT_
         from src.bot.utils import calculate_round_tokens
         user_tokens = calculate_round_tokens(games)
         
+        # Kiểm tra nếu có game đang chơi
+        session = await session_manager.get_session(chat_id)
+        has_active_game = session is not None
+        
         if not user_tokens:
-            await update.message.reply_text(
-                f"📊 *DANH SÁCH TOKEN VÒNG: {escape_markdown(round_name)}*\n\n"
-                "ℹ️ Chưa có dữ liệu token trong vòng này.",
-                parse_mode='Markdown'
-            )
+            # Phân biệt giữa "chưa có game nào kết thúc" vs "vòng rỗng"
+            if has_active_game:
+                await update.message.reply_text(
+                    f"📊 *DANH SÁCH TOKEN VÒNG: {escape_markdown(round_name)}*\\n\\n"
+                    "ℹ️ Vòng mới bắt đầu\\. Hãy kết thúc ván đầu tiên bằng `/ket_thuc` để xem token\\!\\n\\n"
+                    "📝 _Game hiện tại chưa được tính vào tổng\\._",
+                    parse_mode='Markdown'
+                )
+            else:
+                await update.message.reply_text(
+                    f"📊 *DANH SÁCH TOKEN VÒNG: {escape_markdown(round_name)}*\\n\\n"
+                    "ℹ️ Chưa có game nào kết thúc trong vòng này\\.",
+                    parse_mode='Markdown'
+                )
             return
 
         players = sorted(user_tokens.values(), key=lambda x: x["token"], reverse=True)
-        message = f"📊 *DANH SÁCH TOKEN VÒNG: {escape_markdown(round_name)}*\n"
-        message += "━━━━━━━━━━━━━━━━━━━\n\n"
+        message = f"📊 *DANH SÁCH TOKEN VÒNG: {escape_markdown(round_name)}*\\n"
+        message += "━━━━━━━━━━━━━━━━━━━\\n\\n"
         
         for p in players:
             token = p["token"]
             txt_token = f"+{token:.1f}" if token > 0 else f"{token:.1f}"
-            message += f"• {escape_markdown(p['name'])}: `{txt_token}`\n"
+            message += f"• {escape_markdown(p['name'])}: `{txt_token}`\\n"
             
-        message += "\n━━━━━━━━━━━━━━━━━━━"
+        message += "\\n━━━━━━━━━━━━━━━━━━━"
+        
+        # Thêm ghi chú nếu có game đang chơi
+        if has_active_game:
+            message += "\\n\\n📝 _Game hiện tại chưa được tính vào tổng\\._"
+        
         await update.message.reply_text(message, parse_mode='Markdown')
         return
 
