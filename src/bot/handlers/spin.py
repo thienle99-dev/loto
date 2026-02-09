@@ -202,21 +202,21 @@ async def spin_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 return
 
             # Xoá job cũ nếu đang có
-            if context.job_queue:
-                current_jobs = context.job_queue.get_jobs_by_name(f"spin_{chat_id}")
-                for job in current_jobs:
-                    job.schedule_removal()
-                
-                # Thêm job mới
-                context.job_queue.run_repeating(spin_job, interval=seconds, first=0, chat_id=chat_id, name=f"spin_{chat_id}")
-                
-                await update.message.reply_text(f"🔄 *Bắt đầu chế độ quay tự động:* `{seconds}s` / lần\\.\nDùng `/dung` để dừng.", parse_mode='Markdown')
-                return
-            else:
-                await update.message.reply_text("❌ Tính năng quay tự động không khả dụng (JobQueue chưa được cấu hình).")
-                return
+            current_jobs = context.job_queue.get_jobs_by_name(f"spin_{chat_id}")
+            for job in current_jobs:
+                job.schedule_removal()
+            
+            # Thêm job mới
+            context.job_queue.run_repeating(spin_job, interval=seconds, first=0, chat_id=chat_id, name=f"spin_{chat_id}")
+            
+            await update.message.reply_text(f"🔄 *Bắt đầu chế độ quay tự động:* `{seconds}s` / lần\\.\\nDùng `/dung` để dừng.", parse_mode='Markdown')
+            return
         except (ValueError, IndexError):
             pass # Nếu không phải số hoặc sai cú pháp thì quay như bình thường
+        except Exception as e:
+            logger.error(f"Lỗi khi thiết lập quay tự động: {e}")
+            await update.message.reply_text("❌ Có lỗi xảy ra khi thiết lập quay tự động. Vui lòng thử lại.")
+            return
 
     # Quay thủ công 1 lần
     try:
@@ -246,10 +246,6 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def stop_spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /dung - dừng quay tự động"""
     chat_id = update.effective_chat.id
-    
-    if not context.job_queue:
-        await update.message.reply_text("❌ Tính năng này không khả dụng.")
-        return
 
     current_jobs = context.job_queue.get_jobs_by_name(f"spin_{chat_id}")
     if not current_jobs:

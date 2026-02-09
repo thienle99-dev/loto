@@ -136,7 +136,12 @@ def setup_bot(token: str) -> Application:
         # Bắt đầu worker pool để xử lý hàng đợi
         queue_manager.start()
 
-    application = Application.builder().token(token).post_init(post_init).build()
+    application = (
+        Application.builder()
+        .token(token)
+        .post_init(post_init)
+        .build()
+    )
     
     # Base commands
     application.add_handler(CommandHandler("start", start_command))
