@@ -9,6 +9,7 @@ from src.bot.utils import (
     get_chat_stats, get_last_result_for_chat
 )
 from src.bot.wheel import spin_wheel
+from src.bot.voice_utils import get_voice_calling_file
 from src.utils.validators import validate_number
 
 logger = logging.getLogger(__name__)
@@ -56,12 +57,20 @@ async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool
         str_num = str(number)
         full_emoji_str = "".join(get_emoji_digit(d) for d in str_num)
         
-        # Xoá bảng điều khiển cũ nếu có để "nhảy" xuống dưới
         if getattr(session, 'last_control_message_id', None):
             try:
                 await context.bot.delete_message(chat_id=chat_id, message_id=session.last_control_message_id)
             except Exception:
                 pass # Bỏ qua nếu tin nhắn quá cũ hoặc đã bị xoá
+
+        # Gọi số bằng âm thanh
+        voice_file = get_voice_calling_file(number)
+        if voice_file:
+            try:
+                with open(voice_file, "rb") as vf:
+                    await context.bot.send_voice(chat_id=chat_id, voice=vf)
+            except Exception as e:
+                logger.error(f"Lỗi khi gửi voice: {e}")
 
         await context.bot.send_message(chat_id=chat_id, text=full_emoji_str)
         
