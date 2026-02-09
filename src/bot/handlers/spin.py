@@ -17,31 +17,23 @@ logger = logging.getLogger(__name__)
 last_spin_time: dict[int, datetime] = {}
 last_check_time: dict[tuple[int, int], datetime] = {}
 
-async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /quay"""
-    chat_id = update.effective_chat.id
+async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """
+    Thực hiện quay số và gửi tin nhắn kết quả.
+    Trả về True nếu thành công, False nếu không thể quay tiếp.
+    """
     session = session_manager.get_session(chat_id)
-    
-    now = datetime.now()
-
     if not session:
-        await update.message.reply_text(
-            "❌ *Chưa có game nào trong chat\\!*\n\nHost dùng `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo game trước nhé\\.",
-            parse_mode='Markdown'
-        )
-        return
-
-    if not await ensure_active_session(update, chat_id, session):
-        return
+        return False
 
     if not getattr(session, "started", False):
-        await update.message.reply_text(
-            "⏱️ *Game chưa bắt đầu\\!* \n\nHost cần dùng lệnh `/bat_dau` để bắt đầu game trước khi quay số.",
-            parse_mode='Markdown'
-        )
-        return
-    
+        return False
+
+    if session.is_empty():
+        return False
+
     try:
+        now = datetime.now()
         # Phát sinh số và hiển thị kết quả ngay
         number = spin_wheel(session)
         last_spin_time[chat_id] = now
@@ -115,13 +107,108 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("🕹️ Game mới", callback_data=f"cmd:moi_input{suffix}")
         ])
 
+        # Xoá bảng điều khiển cũ nếu có để "nhảy" xuống dưới
+        if getattr(session, 'last_control_message_id', None):
+            try:
+                await context.bot.delete_message(chat_id=chat_id, message_id=session.last_control_message_id)
+            except Exception:
+                pass # Bỏ qua nếu tin nhắn quá cũ hoặc đã bị xoá
+
         # Gửi message thống kê và nút điều khiển
         sent_msg = await context.bot.send_message(chat_id=chat_id, text=stats_msg, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
         session.last_control_message_id = sent_msg.message_id
         
         session_manager.persist_session(chat_id)
+        return True
+    except Exception as e:
+        logger.error(f"Error in perform_spin: {e}")
+        return False
+
+async def spin_job(context: ContextTypes.DEFAULT_TYPE):
+    """Callback cho JobQueue để quay số tự động"""
+    chat_id = context.job.chat_id
+    success = await perform_spin(chat_id, context)
+    if not success:
+        context.job.schedule_removal()
+        await context.bot.send_message(chat_id=chat_id, text="🛑 *Dừng quay tự động* (Game đã kết thúc hoặc hết số).", parse_mode='Markdown')
+
+async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /quay"""
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    session = session_manager.get_session(chat_id)
+    
+    if not session:
+        await update.message.reply_text(
+            "❌ *Chưa có game nào trong chat\\!*\n\nHost dùng `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo game trước nhé\\.",
+            parse_mode='Markdown'
+        )
+        return
+
+    if not await ensure_active_session(update, chat_id, session):
+        return
+
+    if not getattr(session, "started", False):
+        await update.message.reply_text(
+            "⏱️ *Game chưa bắt đầu\\!* \n\nHost cần dùng lệnh `/bat_dau` để bắt đầu game trước khi quay số.",
+            parse_mode='Markdown'
+        )
+        return
+
+    # Kiểm tra nếu có tham số (giây)
+    if context.args:
+        try:
+            seconds = int(context.args[0])
+            if seconds < 2:
+                await update.message.reply_text("⚠️ Số giây phải lớn hơn hoặc bằng 2 nhé.")
+                return
+            
+            # Kiểm tra quyền host (chỉ host mới được bật quay tự động)
+            if getattr(session, "owner_id", None) != user_id:
+                await update.message.reply_text("❌ Chỉ *host* mới có quyền bật chế độ quay tự động\\.", parse_mode='Markdown')
+                return
+
+            # Xoá job cũ nếu đang có
+            if context.job_queue:
+                current_jobs = context.job_queue.get_jobs_by_name(f"spin_{chat_id}")
+                for job in current_jobs:
+                    job.schedule_removal()
+                
+                # Thêm job mới
+                context.job_queue.run_repeating(spin_job, interval=seconds, first=0, chat_id=chat_id, name=f"spin_{chat_id}")
+                
+                await update.message.reply_text(f"🔄 *Bắt đầu chế độ quay tự động:* `{seconds}s` / lần\\.\nDùng `/dung` để dừng.", parse_mode='Markdown')
+                return
+            else:
+                await update.message.reply_text("❌ Tính năng quay tự động không khả dụng (JobQueue chưa được cấu hình).")
+                return
+        except (ValueError, IndexError):
+            pass # Nếu không phải số hoặc sai cú pháp thì quay như bình thường
+
+    # Quay thủ công 1 lần
+    try:
+        await perform_spin(chat_id, context)
     except ValueError as e:
         await update.message.reply_text(f"❌ {str(e)}")
+
+async def stop_spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /dung - dừng quay tự động"""
+    chat_id = update.effective_chat.id
+    
+    if not context.job_queue:
+        await update.message.reply_text("❌ Tính năng này không khả dụng.")
+        return
+
+    current_jobs = context.job_queue.get_jobs_by_name(f"spin_{chat_id}")
+    if not current_jobs:
+        await update.message.reply_text("ℹ️ Hiện không ở chế độ quay tự động.")
+        return
+    
+    for job in current_jobs:
+        job.schedule_removal()
+    
+    await update.message.reply_text("🛑 *Đã dừng quay tự động\\.*", parse_mode='Markdown')
+
 
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /dat_lai (reset các số đã quay)"""

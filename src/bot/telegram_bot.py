@@ -45,7 +45,8 @@ from src.bot.handlers.player import (
     out_command,
     players_command,
     layve_command,
-    lay_ve_callback
+    lay_ve_callback,
+    my_ticket_command
 )
 
 # Import summary handlers
@@ -60,7 +61,8 @@ from src.bot.handlers.spin import (
     clear_command,
     lastresult_command,
     check_command,
-    xoakinh_command
+    xoakinh_command,
+    stop_spin_command
 )
 
 # Import leaderboard handler
@@ -111,9 +113,11 @@ def setup_bot(token: str) -> Application:
             ("ket_thuc_vong", "Kết thúc vòng chơi"),
             ("moi", "Tạo game mới"),
             ("quay", "Quay số"),
+            ("dung", "Dừng quay tự động"),
             ("kinh", "Kiểm tra vé (Kinh!)"),
             ("danh_sach", "Người chơi"),
-            ("lay_ve", "Chọn màu vé"),
+            ("lay_ve", "Lấy vé"),
+            ("ve_cua_toi", "Xem vé của tôi"),
             ("trang_thai", "Trạng thái"),
             ("ket_thuc", "Kết thúc game"),
             ("tong_ket", "Tổng kết game"),
@@ -147,11 +151,13 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("tham_gia", join_command))
     application.add_handler(CommandHandler("danh_sach", players_command))
     application.add_handler(CommandHandler("lay_ve", layve_command))
+    application.add_handler(CommandHandler("ve_cua_toi", my_ticket_command))
     application.add_handler(CommandHandler("tra_ve", out_command))
     application.add_handler(CallbackQueryHandler(lay_ve_callback, pattern="^lay_ve:"))
 
     # Spin & Status
     application.add_handler(CommandHandler("quay", spin_command))
+    application.add_handler(CommandHandler("dung", stop_spin_command))
     application.add_handler(CommandHandler("kinh", check_command))
     application.add_handler(CommandHandler("xoa_kinh", xoakinh_command))
     application.add_handler(CommandHandler("lich_su", history_command))

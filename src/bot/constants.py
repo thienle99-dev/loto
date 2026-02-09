@@ -99,8 +99,8 @@ SPIN_HEADERS = [
 TICKET_DISPLAY_NAMES: dict[str, str] = {
     "cam1": "Cam số 1",
     "cam2": "Cam số 2",
-    "do1": "Đổ số 1",
-    "do2": "Đổ số 2",
+    "do1": "Đỏ số 1",
+    "do2": "Đỏ số 2",
     "duong1": "Xanh dương số 1",
     "duong2": "Xanh dương số 2",
     "hong1": "Hồng số 1",

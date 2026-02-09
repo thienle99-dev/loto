@@ -321,3 +321,45 @@ async def lay_ve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if "Message is not modified" in str(e):
             return
         raise
+
+async def my_ticket_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /ve_cua_toi - Xem vé hiện tại của bản thân"""
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+    user_id = user.id
+    session = session_manager.get_session(chat_id)
+
+    if not session:
+        await update.message.reply_text("❌ Chưa có game nào đang chạy trong chat này.", parse_mode='Markdown')
+        return
+
+    user_tickets = getattr(session, "user_tickets", {})
+    code = user_tickets.get(user_id)
+
+    if not code:
+        await update.message.reply_text(
+            "ℹ️ Bạn chưa chọn vé nào cho game này\\.\n\n"
+            "Dùng `/lay_ve` để chọn vé nhé\\.",
+            parse_mode='Markdown'
+        )
+        return
+
+    display_name = ticket_display_name(code)
+    image_path = TICKET_IMAGES.get(code)
+    
+    caption = f"🎟️ *Vé của bạn:* {escape_markdown(display_name)}\n"
+    caption += f"Mã vé: `{code}`"
+    
+    if image_path and image_path.is_file():
+        try:
+            with open(image_path, "rb") as f:
+                await update.message.reply_photo(
+                    photo=f, 
+                    caption=caption, 
+                    parse_mode="Markdown"
+                )
+            return
+        except Exception as e:
+            logger.error("Không thể gửi ảnh vé %s: %s", code, e)
+
+    await update.message.reply_text(caption, parse_mode="Markdown")

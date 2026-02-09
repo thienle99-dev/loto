@@ -15,7 +15,7 @@ DEFAULT_REMOVE_AFTER_SPIN = True  # Mặc định có loại bỏ số sau khi q
 WEB_APP_URL = os.getenv('WEB_APP_URL', 'https://your-public-url.com')  # URL cho Mini App
 
 # Messages
-WELCOME_MESSAGE = """
+WELCOME_MESSAGE = r"""
 🎰 *Chào mừng đến với Loto Bot\!*  
 Bot hỗ trợ chơi loto / quay số trong nhóm chat với nhiều tiện ích quản lý phòng chơi.
 
@@ -54,7 +54,7 @@ Bot hỗ trợ chơi loto / quay số trong nhóm chat với nhiều tiện ích
 • `/tro_giup` \- xem lại hướng dẫn chi tiết
 """
 
-HELP_MESSAGE = """
+HELP_MESSAGE = r"""
 📖 *Hướng dẫn chi tiết Loto Bot (snake_case commands):*
 
 1️⃣ *Tạo vòng chơi & game (Host)*
