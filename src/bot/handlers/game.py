@@ -480,12 +480,19 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
     game_name = getattr(session, "game_name", None)
     chat_stats = await get_chat_stats(chat_id)
 
-    # Đếm số lần tham gia
+    # Đếm số lần tham gia - CHỈ TÍNH NGƯỜI CÓ VÉ
     participations = chat_stats["participations"]
-    participants = session.get_participants()
-    total_players = len(participants)
     
-    for p in participants:
+    # Lấy danh sách người có vé (người chơi thực sự)
+    user_tickets = getattr(session, "user_tickets", {})
+    ticket_holder_ids = set(user_tickets.keys())
+    
+    # Lọc participants chỉ lấy người có vé
+    all_participants = session.get_participants()
+    actual_players = [p for p in all_participants if p.get("user_id") in ticket_holder_ids]
+    total_players = len(actual_players)
+    
+    for p in actual_players:
         uid = p.get("user_id")
         if uid is None: continue
         name = p.get("name") or str(uid)
@@ -514,23 +521,22 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
             info["name"] = name
             wins[uid] = info
         
-        # Người thua: mất cược
-        loser_ids = [p.get("user_id") for p in participants 
+        # Người thua: mất cược (CHỈ TÍNH NGƯỜI CÓ VÉ)
+        loser_ids = [p.get("user_id") for p in actual_players 
                      if p.get("user_id") is not None and p.get("user_id") not in unique_winners]
         
         for uid in loser_ids:
-            p_info = next((p for p in participants if p.get("user_id") == uid), None)
+            p_info = next((p for p in actual_players if p.get("user_id") == uid), None)
             name = p_info.get("name") if p_info else str(uid)
             info = wins.get(uid, {"count": 0.0, "name": name})
             info["count"] -= bet_amount
             info["name"] = name
             wins[uid] = info
 
-    # Xây dựng danh sách biến động token ván này
+    # Xây dựng danh sách biến động token ván này (CHỈ HIỂN THỊ NGƯỜI CÓ VÉ)
     token_results = []
     if total_players > 0 and unique_winners:
-        actual_participants_list = session.get_participants()
-        for p in actual_participants_list:
+        for p in actual_players:
             p_uid = p.get("user_id")
             if p_uid is None: continue
             p_name = p.get("name") or str(p_uid)
@@ -576,25 +582,12 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
     if chat_id in active_rounds:
         if chat_id not in round_history:
             round_history[chat_id] = []
-        
-        # Chỉ tính những người thực sự có vé là người tham gia ván này
-        ticket_holders = set()
-        if hasattr(session, 'user_tickets'):
-            # Convert keys to int for safety
-            ticket_holders = {int(uid) for uid in session.user_tickets.keys()}
-        
-        all_participants = session.get_participants()
-        actual_participants = [p for p in all_participants if int(p.get("user_id")) in ticket_holders]
-        
-        # Nếu host cũng chơi (có vé) thì đã nằm trong actual_participants. 
-        # Nếu host không chơi nhưng bạn vẫn muốn họ có trong list stats (với 0 điểm) 
-        # thì logic tính toán ở leaderboard sẽ tự lo. Ở đây ta chỉ lấy người có vé.
 
         game_record = {
             "game_name": game_name,
             "host_name": host_name,
             "winners": list(getattr(session, "winners", [])),
-            "participants": actual_participants,
+            "participants": actual_players,  # Sử dụng actual_players đã tính ở trên
             "numbers_drawn": len(session.history),
             "ended_at": datetime.now().isoformat(timespec="seconds"),
         }
