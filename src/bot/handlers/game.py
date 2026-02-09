@@ -592,6 +592,7 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
             "ended_at": datetime.now().isoformat(timespec="seconds"),
         }
         round_history[chat_id].append(game_record)
+        logger.info(f"Saved game to round_history. Chat {chat_id} now has {len(round_history[chat_id])} games. Participants: {len(actual_players)}")
     
     await session_manager.delete_session(chat_id)
 

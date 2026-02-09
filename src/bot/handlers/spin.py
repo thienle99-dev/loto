@@ -228,6 +228,11 @@ async def spin_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE)
             return
 
     # Quay thủ công 1 lần
+    # Kiểm tra quyền host (chỉ host mới được quay)
+    if getattr(session, "owner_id", None) != user_id:
+        await update.message.reply_text("❌ Chỉ *host* mới có quyền quay số\\.", parse_mode='Markdown')
+        return
+    
     try:
         success = await perform_spin(chat_id, context)
         if not success:
