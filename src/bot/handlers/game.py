@@ -5,6 +5,7 @@ from src.bot.constants import active_rounds, round_history, MAX_NUMBERS, DEFAULT
 from src.bot.utils import escape_markdown, session_manager, get_chat_stats
 from src.utils.validators import validate_range, validate_number
 from src.db.sqlite_store import save_stats, save_last_result, save_active_round, delete_active_round_row
+from src.bot.worker import queued_handler
 
 async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /vong_moi <tên_vòng> - tạo vòng chơi mới trong chat."""
@@ -166,6 +167,7 @@ async def endround_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
     )
 
+@queued_handler
 async def newsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /moi <tên_game>"""
     chat_id = update.effective_chat.id
@@ -366,6 +368,7 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except ValueError as e:
         await update.message.reply_text(f"❌ Lỗi: {str(e)}")
 
+@queued_handler
 async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /bat_dau - host bấm để bắt đầu game"""
     chat_id = update.effective_chat.id
@@ -435,6 +438,7 @@ async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYP
     session.last_control_message_id = sent_msg.message_id
     session_manager.persist_session(chat_id)
 
+@queued_handler
 async def endsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /ket_thuc"""
     chat_id = update.effective_chat.id

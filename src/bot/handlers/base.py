@@ -3,6 +3,7 @@ from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ForceReply
 from telegram.ext import ContextTypes
 from telegram.error import RetryAfter, TimedOut, NetworkError
+from src.bot.worker import queued_handler
 from config.config import WELCOME_MESSAGE, HELP_MESSAGE
 from src.bot.constants import COOLDOWN_GENERAL_SECONDS
 
@@ -91,6 +92,7 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
+@queued_handler
 async def generic_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Xử lý các lệnh từ nút bấm trong Menu (hỗ trợ điều khiển từ xa qua chat_id nhúng)"""
     query = update.callback_query

@@ -80,8 +80,11 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
+from src.bot.queue_manager import queue_manager
+from src.bot.worker import queued_handler
 logger = logging.getLogger(__name__)
 
+@queued_handler
 async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Xử lý dữ liệu gửi về từ Web App"""
     import json
@@ -130,6 +133,8 @@ def setup_bot(token: str) -> Application:
             ("doi", "Đợi số"),
             ("tro_giup", "Trợ giúp")
         ])
+        # Bắt đầu worker pool để xử lý hàng đợi
+        queue_manager.start()
 
     application = Application.builder().token(token).post_init(post_init).build()
     

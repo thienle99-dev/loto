@@ -10,6 +10,7 @@ from src.bot.utils import (
 )
 from src.bot.wheel import spin_wheel
 from src.bot.voice_utils import get_voice_calling_file
+from src.bot.worker import queued_handler
 from src.utils.validators import validate_number
 
 logger = logging.getLogger(__name__)
@@ -141,6 +142,7 @@ async def spin_job(context: ContextTypes.DEFAULT_TYPE):
         context.job.schedule_removal()
         await context.bot.send_message(chat_id=chat_id, text="🛑 *Dừng quay tự động* (Game đã kết thúc hoặc hết số).", parse_mode='Markdown')
 
+@queued_handler
 async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /quay"""
     chat_id = update.effective_chat.id
@@ -200,6 +202,7 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except ValueError as e:
         await update.message.reply_text(f"❌ {str(e)}")
 
+@queued_handler
 async def stop_spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /dung - dừng quay tự động"""
     chat_id = update.effective_chat.id
@@ -423,6 +426,7 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         ])
     )
 
+@queued_handler
 async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /kinh"""
     chat_id = update.effective_chat.id

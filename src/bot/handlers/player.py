@@ -3,6 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from src.bot.constants import TICKET_CODES, TICKET_IMAGES
 from src.bot.utils import escape_markdown, session_manager, ticket_display_name, ensure_active_session
+from src.bot.worker import queued_handler
 from telegram.error import BadRequest
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,7 @@ async def out_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎟️ Lấy vé ngay", callback_data=f"cmd:lay_ve{suffix}")]])
         )
 
+@queued_handler
 async def players_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /danh_sach - hiển thị danh sách người tham gia game"""
     chat_id = update.effective_chat.id
@@ -129,6 +131,7 @@ async def players_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
     )
 
+@queued_handler
 async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /lay_ve"""
     chat_id = update.effective_chat.id
