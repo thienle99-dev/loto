@@ -143,7 +143,14 @@ class WheelSession:
         session.winners = data.get('winners', [])
         # Khôi phục thêm thông tin vé (luôn gán, mặc định là dict rỗng)
         session.tickets = data.get('tickets', {})
-        session.user_tickets = data.get('user_tickets', {})
+        
+        user_tickets_data = data.get('user_tickets', {})
+        session.user_tickets = {}
+        for k, v in user_tickets_data.items():
+            try:
+                session.user_tickets[int(k)] = v
+            except ValueError:
+                session.user_tickets[k] = v # Giữ nguyên nếu không phải int
         
         waiting_data = data.get('waiting_numbers', {})
         session.waiting_numbers = {}

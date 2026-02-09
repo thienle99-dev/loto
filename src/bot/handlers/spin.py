@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes
 from src.bot.constants import COOLDOWN_SPIN_SECONDS, COOLDOWN_CHECK_SECONDS, last_results, WAITING_RESPONSES, SPIN_HEADERS
 from src.bot.utils import (
     escape_markdown, session_manager, ensure_active_session, 
-    get_chat_stats, get_last_result_for_chat
+    get_chat_stats, get_last_result_for_chat, check_winners_for_session
 )
 from src.bot.wheel import spin_wheel
 from src.bot.voice_utils import get_voice_calling_file
@@ -127,6 +127,25 @@ async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool
         # Gửi message thống kê và nút điều khiển
         sent_msg = await context.bot.send_message(chat_id=chat_id, text=stats_msg, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
         session.last_control_message_id = sent_msg.message_id
+
+        # 🎯 Tự động báo Kinh (Auto-check)
+        winners = check_winners_for_session(chat_id)
+        if winners:
+            winner_mentions = []
+            for w in winners:
+                mention = f"[{escape_markdown(w['name'])}](tg://user?id={w['user_id']})"
+                row_nums = ", ".join(map(str, w['numbers']))
+                winner_mentions.append(
+                    f"🎉 {mention} đã **KINH** ở hàng {w['row_index']} của vé `{w['ticket_id']}`\\!\n"
+                    f"👉 Bộ số: `{row_nums}`"
+                )
+            
+            win_msg = "🎊 *CHÚC MỪNG NGƯỜI THẮNG CUỘC:* 🎊\n\n" + "\n\n".join(winner_mentions)
+            await context.bot.send_message(chat_id=chat_id, text=win_msg, parse_mode='Markdown')
+            
+            # Tự động dừng spin nếu đang quay tự động (nếu có tính năng đó)
+            if hasattr(session, 'auto_spin') and session.auto_spin:
+                session.auto_spin = False
         
         session_manager.persist_session(chat_id)
         return True
