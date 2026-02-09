@@ -4,6 +4,7 @@ from telegram.ext import ContextTypes
 from src.bot.constants import TICKET_CODES, TICKET_IMAGES
 from src.bot.utils import escape_markdown, session_manager, ticket_display_name, ensure_active_session
 from src.bot.worker import queued_handler
+from src.db.sqlite_store import get_photo_cache, save_photo_cache
 from telegram.error import BadRequest
 
 logger = logging.getLogger(__name__)
@@ -239,10 +240,21 @@ async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     image_path = TICKET_IMAGES.get(code)
-    if image_path and image_path.is_file():
+    cached_file_id = get_photo_cache(code) if code else None
+
+    if cached_file_id:
+        try:
+            await update.message.reply_photo(photo=cached_file_id, caption=f"🎟️ Vé của bạn: {escape_markdown(ticket_display_name(code))}", parse_mode="Markdown")
+        except Exception:
+            cached_file_id = None # Nếu file_id hết hạn/lỗi thì upload lại
+
+    if not cached_file_id and image_path and image_path.is_file():
         try:
             with open(image_path, "rb") as f:
-                await update.message.reply_photo(photo=f, caption=f"🎟️ Vé của bạn: {escape_markdown(ticket_display_name(code))}", parse_mode="Markdown")
+                sent_photo = await update.message.reply_photo(photo=f, caption=f"🎟️ Vé của bạn: {escape_markdown(ticket_display_name(code))}", parse_mode="Markdown")
+                # Lưu vào cache
+                if sent_photo and sent_photo.photo:
+                    save_photo_cache(code, sent_photo.photo[-1].file_id)
         except Exception as e:
             logger.error("Không thể gửi ảnh vé %s: %s", code, e)
 
@@ -297,10 +309,20 @@ async def lay_ve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.message.reply_text(f"✅ {escape_markdown(user.full_name)} đã lấy vé: {escape_markdown(ticket_display_name(code))}", parse_mode="Markdown")
 
     image_path = TICKET_IMAGES.get(code)
-    if image_path and image_path.is_file():
+    cached_file_id = get_photo_cache(code) if code else None
+
+    if cached_file_id:
+        try:
+            await query.message.reply_photo(photo=cached_file_id, caption=f"🎟️ Vé của: {escape_markdown(user.full_name)} - {escape_markdown(ticket_display_name(code))}", parse_mode="Markdown")
+        except Exception:
+            cached_file_id = None
+
+    if not cached_file_id and image_path and image_path.is_file():
         try:
             with open(image_path, "rb") as f:
-                await query.message.reply_photo(photo=f, caption=f"🎟️ Vé của: {escape_markdown(user.full_name)} - {escape_markdown(ticket_display_name(code))}", parse_mode="Markdown")
+                sent_photo = await query.message.reply_photo(photo=f, caption=f"🎟️ Vé của: {escape_markdown(user.full_name)} - {escape_markdown(ticket_display_name(code))}", parse_mode="Markdown")
+                if sent_photo and sent_photo.photo:
+                    save_photo_cache(code, sent_photo.photo[-1].file_id)
         except Exception as e:
             logger.error("Không thể gửi ảnh vé %s: %s", code, e)
 
@@ -349,18 +371,24 @@ async def my_ticket_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     display_name = ticket_display_name(code)
     image_path = TICKET_IMAGES.get(code)
+    cached_file_id = get_photo_cache(code)
     
     caption = f"🎟️ *Vé của bạn:* {escape_markdown(display_name)}\n"
     caption += f"Mã vé: `{code}`"
     
+    if cached_file_id:
+        try:
+            await update.message.reply_photo(photo=cached_file_id, caption=caption, parse_mode="Markdown")
+            return
+        except Exception:
+            cached_file_id = None
+
     if image_path and image_path.is_file():
         try:
             with open(image_path, "rb") as f:
-                await update.message.reply_photo(
-                    photo=f, 
-                    caption=caption, 
-                    parse_mode="Markdown"
-                )
+                sent_photo = await update.message.reply_photo(photo=f, caption=caption, parse_mode="Markdown")
+                if sent_photo and sent_photo.photo:
+                    save_photo_cache(code, sent_photo.photo[-1].file_id)
             return
         except Exception as e:
             logger.error("Không thể gửi ảnh vé %s: %s", code, e)

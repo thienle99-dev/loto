@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 from telegram import Update
 from src.bot.constants import TICKET_DISPLAY_NAMES, stats, last_results, BET_AMOUNT
-from src.bot.ticket_data import get_ticket_numbers
 from src.db.sqlite_store import load_stats, load_last_result
 from src.bot.session_manager import SessionManager
 
@@ -179,47 +178,3 @@ def get_round_leaderboard_text(round_name: str, user_tokens: dict) -> str:
         
     message += "\n━━━━━━━━━━━━━━━━━━━"
     return message
-
-def is_row_complete(row: list, history: set) -> bool:
-    """Kiểm tra xem một hàng đã ra đủ số chưa"""
-    return all(num in history for num in row)
-
-def check_winners_for_session(chat_id: int) -> list:
-    """
-    Kiểm tra xem có người chơi nào đã Kinh (Auto-check) chưa.
-    Trả về danh sách các người chơi thắng [ {user_id, name, ticket_id, row_index, numbers} ].
-    """
-    session = session_manager.get_session(chat_id)
-    if not session:
-        return []
-
-    # Giả sử session có thuộc tính user_tickets lưu {user_id: ticket_id}
-    user_tickets = getattr(session, "user_tickets", {})
-    # Trích xuất danh sách các số đã ra từ lịch sử (history là list[dict])
-    history_set = {h.get("number") for h in session.history if h.get("number") is not None}
-    
-    winners = []
-    
-    for user_id, ticket_id in user_tickets.items():
-        ticket_rows = get_ticket_numbers(ticket_id)
-        if not ticket_rows:
-            continue
-            
-        for idx, row in enumerate(ticket_rows):
-            if is_row_complete(row, history_set):
-                # Người này đã Kinh ở hàng này
-                participants = session.get_participants()
-                user_info = next((p for p in participants if p.get("user_id") == user_id), {})
-                user_name = user_info.get("name", str(user_id))
-                
-                winners.append({
-                    "user_id": user_id,
-                    "name": user_name,
-                    "ticket_id": ticket_id,
-                    "row_index": idx + 1,
-                    "numbers": row
-                })
-                # Một người có thể Kinh nhiều hàng, nhưng thường chỉ cần báo 1 lần
-                break
-                
-    return winners

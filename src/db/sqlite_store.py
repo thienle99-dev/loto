@@ -68,6 +68,17 @@ def init_db() -> None:
         """
     )
 
+    # Lưu cache file_id của ảnh vé: {ticket_code: file_id}
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS photo_cache (
+            ticket_code TEXT PRIMARY KEY,
+            file_id TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+
     conn.commit()
     conn.close()
 
@@ -256,3 +267,35 @@ def delete_active_round_row(chat_id: int) -> None:
     cur.execute("DELETE FROM active_rounds WHERE chat_id = ?", (chat_id,))
     conn.commit()
     conn.close()
+
+# ---------- Photo Cache ----------
+def save_photo_cache(ticket_code: str, file_id: str) -> None:
+    """Lưu file_id của ảnh vé vào cache."""
+    conn = get_connection()
+    cur = conn.cursor()
+    now = datetime.now().isoformat(timespec="seconds")
+    
+    cur.execute(
+        """
+        INSERT INTO photo_cache(ticket_code, file_id, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(ticket_code) DO UPDATE SET
+            file_id = excluded.file_id,
+            updated_at = excluded.updated_at
+        """,
+        (ticket_code, file_id, now),
+    )
+    conn.commit()
+    conn.close()
+
+def get_photo_cache(ticket_code: str) -> Optional[str]:
+    """Lấy file_id từ cache nếu có."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT file_id FROM photo_cache WHERE ticket_code = ?", (ticket_code,))
+    row = cur.fetchone()
+    conn.close()
+    
+    if row:
+        return row["file_id"]
+    return None
