@@ -18,5 +18,3 @@ pydantic>=2.0.0
 # pytest>=7.4.0
 # pytest-asyncio>=0.21.0
 
-# Voice/TTS
-gTTS>=2.3.0

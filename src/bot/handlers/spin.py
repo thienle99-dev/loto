@@ -9,10 +9,9 @@ from src.bot.utils import (
     get_chat_stats, get_last_result_for_chat
 )
 from src.bot.wheel import spin_wheel
-from src.bot.media_utils import get_voice_calling_file, get_video_note_file
+from src.bot.media_utils import get_video_note_file
 from src.bot.worker import queued_handler
 from src.db.sqlite_store import (
-    get_voice_cache, save_voice_cache,
     get_video_note_cache, save_video_note_cache
 )
 from src.utils.validators import validate_number
@@ -91,25 +90,8 @@ async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool
                 except Exception as e:
                     logger.error(f"Lỗi khi gửi video note: {e}")
 
-        # 2. Nếu không có video hoặc gửi lỗi, gửi Voice message (Âm thanh gTTS)
-        if not video_sent:
-            cached_voice_id = get_voice_cache(number)
-            if cached_voice_id:
-                try:
-                    await context.bot.send_voice(chat_id=chat_id, voice=cached_voice_id)
-                except Exception:
-                    cached_voice_id = None
-
-            if not cached_voice_id:
-                voice_file = get_voice_calling_file(number)
-                if voice_file:
-                    try:
-                        with open(voice_file, "rb") as vf:
-                            sent_voice = await context.bot.send_voice(chat_id=chat_id, voice=vf)
-                            if sent_voice and sent_voice.voice:
-                                save_voice_cache(number, sent_voice.voice.file_id)
-                    except Exception as e:
-                        logger.error(f"Lỗi khi gửi voice: {e}")
+                except Exception as e:
+                    logger.error(f"Lỗi khi gửi video note: {e}")
 
         await context.bot.send_message(chat_id=chat_id, text=full_emoji_str)
         
@@ -155,14 +137,15 @@ async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool
             InlineKeyboardButton("🕹️ Game mới", callback_data=f"cmd:moi_input{suffix}")
         ])
 
-        # Xoá bảng điều khiển cũ nếu có để "nhảy" xuống dưới
-        if getattr(session, 'last_control_message_id', None):
-            try:
-                await context.bot.delete_message(chat_id=chat_id, message_id=session.last_control_message_id)
-            except Exception:
-                pass # Bỏ qua nếu tin nhắn quá cũ hoặc đã bị xoá
+        # 3. Gửi bảng điều khiển mới (thành 1 tin nhắn riêng để nó nằm dưới cùng)
+        sent_control_msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text=stats_msg,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown"
+        )
 
-        session.last_control_message_id = sent_msg.message_id
+        session.last_control_message_id = sent_control_msg.message_id
         
         session_manager.persist_session(chat_id)
         return True
