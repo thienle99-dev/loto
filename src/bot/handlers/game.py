@@ -190,7 +190,7 @@ async def newsession_command_logic(update: Update, context: ContextTypes.DEFAULT
         )
         return
 
-    if session_manager.has_session(chat_id):
+    if await session_manager.has_session(chat_id):
         target_chat_id = chat_id
         suffix = f":{target_chat_id}"
         await update.message.reply_text(
@@ -292,7 +292,7 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if session_manager.has_session(chat_id):
+    if await session_manager.has_session(chat_id):
         target_chat_id = chat_id
         suffix = f":{target_chat_id}"
         await update.message.reply_text(

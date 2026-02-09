@@ -234,32 +234,63 @@ async def layve_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE
     session.add_participant(user_id=user_id, name=user.full_name or (user.username or str(user_id)))
     await session_manager.persist_session(chat_id)
 
-    people_lines = [f"- {escape_markdown(str(uid))}: {escape_markdown(ticket_display_name(c))}" for uid, c in user_tickets.items()]
-    list_text = "\n\n👥 *Danh sách người đã lấy vé:*\n" + "\n".join(people_lines) if people_lines else ""
-
+    # Gửi thông báo trong nhóm (hiển thị tên người và loại vé)
     await update.message.reply_text(
-        f"✅ Bạn đã lấy vé: {escape_markdown(ticket_display_name(code))} và tham gia game." + list_text,
+        f"✅ {escape_markdown(user.full_name or user.username or str(user_id))} đã lấy vé: {escape_markdown(ticket_display_name(code))}",
         parse_mode="Markdown"
     )
 
-    image_path = TICKET_IMAGES.get(code)
-    cached_file_id = get_photo_cache(code) if code else None
+    # Gửi chi tiết vé riêng cho người chơi qua private message
+    try:
+        image_path = TICKET_IMAGES.get(code)
+        cached_file_id = get_photo_cache(code) if code else None
+        
+        private_caption = (
+            f"🎟️ *Vé của bạn:* {escape_markdown(ticket_display_name(code))}\n"
+            f"📋 Mã vé: `{code}`\n\n"
+            f"💡 Giữ vé này để kiểm tra khi chơi\\!"
+        )
 
-    if cached_file_id:
-        try:
-            await update.message.reply_photo(photo=cached_file_id, caption=f"🎟️ Vé của bạn: {escape_markdown(ticket_display_name(code))}", parse_mode="Markdown")
-        except Exception:
-            cached_file_id = None # Nếu file_id hết hạn/lỗi thì upload lại
+        if cached_file_id:
+            try:
+                await context.bot.send_photo(
+                    chat_id=user_id,
+                    photo=cached_file_id,
+                    caption=private_caption,
+                    parse_mode="Markdown"
+                )
+            except Exception:
+                cached_file_id = None
 
-    if not cached_file_id and image_path and image_path.is_file():
-        try:
-            with open(image_path, "rb") as f:
-                sent_photo = await update.message.reply_photo(photo=f, caption=f"🎟️ Vé của bạn: {escape_markdown(ticket_display_name(code))}", parse_mode="Markdown")
-                # Lưu vào cache
-                if sent_photo and sent_photo.photo:
-                    save_photo_cache(code, sent_photo.photo[-1].file_id)
-        except Exception as e:
-            logger.error("Không thể gửi ảnh vé %s: %s", code, e)
+        if not cached_file_id and image_path and image_path.is_file():
+            try:
+                with open(image_path, "rb") as f:
+                    sent_photo = await context.bot.send_photo(
+                        chat_id=user_id,
+                        photo=f,
+                        caption=private_caption,
+                        parse_mode="Markdown"
+                    )
+                    # Lưu vào cache
+                    if sent_photo and sent_photo.photo:
+                        save_photo_cache(code, sent_photo.photo[-1].file_id)
+            except Exception as e:
+                logger.error("Không thể gửi ảnh vé %s qua private message: %s", code, e)
+        
+        # Nếu không có ảnh, gửi text
+        if not cached_file_id and (not image_path or not image_path.is_file()):
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=private_caption,
+                parse_mode="Markdown"
+            )
+    except Exception as e:
+        logger.error("Không thể gửi vé riêng cho user %s: %s", user_id, e)
+        # Fallback: gửi thông báo trong nhóm nếu không gửi được private message
+        await update.message.reply_text(
+            f"⚠️ Không thể gửi vé riêng cho bạn\\. Vui lòng bắt đầu chat với bot trước bằng cách nhắn `/start` cho bot\\.",
+            parse_mode="Markdown"
+        )
 
 @queued_handler
 async def layve_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -314,25 +345,63 @@ async def lay_ve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await session_manager.persist_session(chat_id)
 
     await query.answer(f"✅ Đã chọn {ticket_display_name(code)}!")
-    await query.message.reply_text(f"✅ {escape_markdown(user.full_name)} đã lấy vé: {escape_markdown(ticket_display_name(code))}", parse_mode="Markdown")
+    
+    # Gửi thông báo trong nhóm (hiển thị tên người và loại vé)
+    await query.message.reply_text(
+        f"✅ {escape_markdown(user.full_name or user.username or str(user_id))} đã lấy vé: {escape_markdown(ticket_display_name(code))}",
+        parse_mode="Markdown"
+    )
 
-    image_path = TICKET_IMAGES.get(code)
-    cached_file_id = get_photo_cache(code) if code else None
+    # Gửi chi tiết vé riêng cho người chơi qua private message
+    try:
+        image_path = TICKET_IMAGES.get(code)
+        cached_file_id = get_photo_cache(code) if code else None
+        
+        private_caption = (
+            f"🎟️ *Vé của bạn:* {escape_markdown(ticket_display_name(code))}\\n"
+            f"📋 Mã vé: `{code}`\\n\\n"
+            f"💡 Giữ vé này để kiểm tra khi chơi\\\\!"
+        )
 
-    if cached_file_id:
-        try:
-            await query.message.reply_photo(photo=cached_file_id, caption=f"🎟️ Vé của: {escape_markdown(user.full_name)} - {escape_markdown(ticket_display_name(code))}", parse_mode="Markdown")
-        except Exception:
-            cached_file_id = None
+        if cached_file_id:
+            try:
+                await context.bot.send_photo(
+                    chat_id=user_id,
+                    photo=cached_file_id,
+                    caption=private_caption,
+                    parse_mode="Markdown"
+                )
+            except Exception:
+                cached_file_id = None
 
-    if not cached_file_id and image_path and image_path.is_file():
-        try:
-            with open(image_path, "rb") as f:
-                sent_photo = await query.message.reply_photo(photo=f, caption=f"🎟️ Vé của: {escape_markdown(user.full_name)} - {escape_markdown(ticket_display_name(code))}", parse_mode="Markdown")
-                if sent_photo and sent_photo.photo:
-                    save_photo_cache(code, sent_photo.photo[-1].file_id)
-        except Exception as e:
-            logger.error("Không thể gửi ảnh vé %s: %s", code, e)
+        if not cached_file_id and image_path and image_path.is_file():
+            try:
+                with open(image_path, "rb") as f:
+                    sent_photo = await context.bot.send_photo(
+                        chat_id=user_id,
+                        photo=f,
+                        caption=private_caption,
+                        parse_mode="Markdown"
+                    )
+                    if sent_photo and sent_photo.photo:
+                        save_photo_cache(code, sent_photo.photo[-1].file_id)
+            except Exception as e:
+                logger.error("Không thể gửi ảnh vé %s qua private message: %s", code, e)
+        
+        # Nếu không có ảnh, gửi text
+        if not cached_file_id and (not image_path or not image_path.is_file()):
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=private_caption,
+                parse_mode="Markdown"
+            )
+    except Exception as e:
+        logger.error("Không thể gửi vé riêng cho user %s: %s", user_id, e)
+        # Fallback: gửi thông báo trong nhóm nếu không gửi được private message
+        await query.message.reply_text(
+            f"⚠️ Không thể gửi vé riêng cho bạn\\. Vui lòng bắt đầu chat với bot trước bằng cách nhắn `/start` cho bot\\.",
+            parse_mode="Markdown"
+        )
 
     # Cập nhật menu nút bấm
     keyboard = []
