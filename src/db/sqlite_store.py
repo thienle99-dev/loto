@@ -79,6 +79,28 @@ def init_db() -> None:
         """
     )
 
+    # Lưu cache file_id của voice: {number: file_id}
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS voice_cache (
+            number INTEGER PRIMARY KEY,
+            file_id TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+
+    # Lưu cache file_id của video note: {number: file_id}
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS video_note_cache (
+            number INTEGER PRIMARY KEY,
+            file_id TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+
     conn.commit()
     conn.close()
 
@@ -325,6 +347,38 @@ def get_voice_cache(number: int) -> Optional[str]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT file_id FROM voice_cache WHERE number = ?", (number,))
+    row = cur.fetchone()
+    conn.close()
+    
+    if row:
+        return row["file_id"]
+    return None
+
+# ---------- Video Note Cache ----------
+def save_video_note_cache(number: int, file_id: str) -> None:
+    """Lưu file_id của video note vào cache."""
+    conn = get_connection()
+    cur = conn.cursor()
+    now = datetime.now().isoformat(timespec="seconds")
+    
+    cur.execute(
+        """
+        INSERT INTO video_note_cache(number, file_id, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(number) DO UPDATE SET
+            file_id = excluded.file_id,
+            updated_at = excluded.updated_at
+        """,
+        (number, file_id, now),
+    )
+    conn.commit()
+    conn.close()
+
+def get_video_note_cache(number: int) -> Optional[str]:
+    """Lấy file_id từ cache nếu có."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT file_id FROM video_note_cache WHERE number = ?", (number,))
     row = cur.fetchone()
     conn.close()
     

@@ -55,3 +55,4 @@ Thumbs.db
 # Logs
 *.log
 *.db
+voice_cache

@@ -9,8 +9,12 @@ from src.bot.utils import (
     get_chat_stats, get_last_result_for_chat
 )
 from src.bot.wheel import spin_wheel
-from src.bot.voice_utils import get_voice_calling_file
+from src.bot.media_utils import get_voice_calling_file, get_video_note_file
 from src.bot.worker import queued_handler
+from src.db.sqlite_store import (
+    get_voice_cache, save_voice_cache,
+    get_video_note_cache, save_video_note_cache
+)
 from src.utils.validators import validate_number
 
 logger = logging.getLogger(__name__)
@@ -64,27 +68,48 @@ async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool
             except Exception:
                 pass # Bỏ qua nếu tin nhắn quá cũ hoặc đã bị xoá
 
-        # Gọi số bằng âm thanh
-        from src.db.sqlite_store import get_voice_cache, save_voice_cache
+        # 1. Ưu tiên gửi Video Note (Video tròn - Autoplay)
+        video_sent = False
+        cached_video_id = get_video_note_cache(number)
         
-        cached_voice_id = get_voice_cache(number)
-        if cached_voice_id:
+        if cached_video_id:
             try:
-                await context.bot.send_voice(chat_id=chat_id, voice=cached_voice_id)
-                voice_sent = True
+                await context.bot.send_video_note(chat_id=chat_id, video_note=cached_video_id)
+                video_sent = True
             except Exception:
-                cached_voice_id = None
+                cached_video_id = None
 
-        if not cached_voice_id:
-            voice_file = get_voice_calling_file(number)
-            if voice_file:
+        if not video_sent:
+            video_file = get_video_note_file(number)
+            if video_file:
                 try:
-                    with open(voice_file, "rb") as vf:
-                        sent_voice = await context.bot.send_voice(chat_id=chat_id, voice=vf)
-                        if sent_voice and sent_voice.voice:
-                            save_voice_cache(number, sent_voice.voice.file_id)
+                    with open(video_file, "rb") as vf:
+                        sent_vn = await context.bot.send_video_note(chat_id=chat_id, video_note=vf)
+                        if sent_vn and sent_vn.video_note:
+                            save_video_note_cache(number, sent_vn.video_note.file_id)
+                        video_sent = True
                 except Exception as e:
-                    logger.error(f"Lỗi khi gửi voice: {e}")
+                    logger.error(f"Lỗi khi gửi video note: {e}")
+
+        # 2. Nếu không có video hoặc gửi lỗi, gửi Voice message (Âm thanh gTTS)
+        if not video_sent:
+            cached_voice_id = get_voice_cache(number)
+            if cached_voice_id:
+                try:
+                    await context.bot.send_voice(chat_id=chat_id, voice=cached_voice_id)
+                except Exception:
+                    cached_voice_id = None
+
+            if not cached_voice_id:
+                voice_file = get_voice_calling_file(number)
+                if voice_file:
+                    try:
+                        with open(voice_file, "rb") as vf:
+                            sent_voice = await context.bot.send_voice(chat_id=chat_id, voice=vf)
+                            if sent_voice and sent_voice.voice:
+                                save_voice_cache(number, sent_voice.voice.file_id)
+                    except Exception as e:
+                        logger.error(f"Lỗi khi gửi voice: {e}")
 
         await context.bot.send_message(chat_id=chat_id, text=full_emoji_str)
         
