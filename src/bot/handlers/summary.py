@@ -39,7 +39,7 @@ async def summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     # Lấy thống kê token
-    chat_stats = get_chat_stats(chat_id)
+    chat_stats = await get_chat_stats(chat_id)
     wins = chat_stats.get("wins", {})
     
     # Tạo message tổng kết

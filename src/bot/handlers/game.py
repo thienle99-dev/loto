@@ -81,7 +81,7 @@ async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     round_history[chat_id] = []
     
     # Reset thống kê của chat cho vòng mới (để token tính từ 0)
-    chat_stats = get_chat_stats(chat_id)
+    chat_stats = await get_chat_stats(chat_id)
     chat_stats["wins"] = {}
     chat_stats["participations"] = {}
     save_stats(chat_id, chat_stats)
@@ -478,7 +478,7 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
         return
 
     game_name = getattr(session, "game_name", None)
-    chat_stats = get_chat_stats(chat_id)
+    chat_stats = await get_chat_stats(chat_id)
 
     # Đếm số lần tham gia
     participations = chat_stats["participations"]

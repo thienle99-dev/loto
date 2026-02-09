@@ -13,7 +13,7 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     chat_id = update.effective_chat.id
     
     # Lấy thống kê
-    chat_stats = get_chat_stats(chat_id)
+    chat_stats = await get_chat_stats(chat_id)
     wins = chat_stats.get("wins", {})
     
     # Chỉ lấy những người có biến động token (khác 0)
@@ -146,7 +146,7 @@ async def show_user_token_command(update: Update, context: ContextTypes.DEFAULT_
         return
 
     # 2. Nếu không có vòng, hiện token tổng (từ chat stats)
-    chat_stats = get_chat_stats(chat_id)
+    chat_stats = await get_chat_stats(chat_id)
     wins = chat_stats.get("wins", {})
     
     if not wins:
@@ -182,7 +182,7 @@ async def reset_token_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Trong các command khác, owner_id thường được check.
     # Nhưng user yêu cầu reset_token, ta cứ thực hiện.
     
-    chat_stats = get_chat_stats(chat_id)
+    chat_stats = await get_chat_stats(chat_id)
     chat_stats["wins"] = {}
     # Giữ lại participations nếu chỉ muốn reset token? 
     # User nói "clear token", nên ta chỉ clear wins.
@@ -219,7 +219,7 @@ async def xoa_token_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 # mention thường chỉ có username (@abc), cần tìm trong stats
                 username = text.lstrip('@')
-                chat_stats = get_chat_stats(chat_id)
+                chat_stats = await get_chat_stats(chat_id)
                 wins = chat_stats.get("wins", {})
                 for uid, info in wins.items():
                     if info.get("username") == username:
@@ -241,7 +241,7 @@ async def xoa_token_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    chat_stats = get_chat_stats(chat_id)
+    chat_stats = await get_chat_stats(chat_id)
     wins = chat_stats.get("wins", {})
     
     if str(target_user_id) in wins or target_user_id in wins:
