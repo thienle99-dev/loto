@@ -201,6 +201,15 @@ async def spin_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await update.message.reply_text("❌ Chỉ *host* mới có quyền bật chế độ quay tự động\\.", parse_mode='Markdown')
                 return
 
+            # Kiểm tra JobQueue có khả dụng không
+            if not context.job_queue:
+                await update.message.reply_text(
+                    "❌ *Tính năng quay tự động không khả dụng\\.*\\n\\n"
+                    "Cần cài đặt: `pip install python-telegram-bot[job-queue]`",
+                    parse_mode='Markdown'
+                )
+                return
+
             # Xoá job cũ nếu đang có
             current_jobs = context.job_queue.get_jobs_by_name(f"spin_{chat_id}")
             for job in current_jobs:
@@ -246,6 +255,14 @@ async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def stop_spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /dung - dừng quay tự động"""
     chat_id = update.effective_chat.id
+
+    if not context.job_queue:
+        await update.message.reply_text(
+            "❌ *Tính năng quay tự động không khả dụng\\.*\\n\\n"
+            "Cần cài đặt: `pip install python-telegram-bot[job-queue]`",
+            parse_mode='Markdown'
+        )
+        return
 
     current_jobs = context.job_queue.get_jobs_by_name(f"spin_{chat_id}")
     if not current_jobs:
