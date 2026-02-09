@@ -1,7 +1,8 @@
 import asyncio
 import logging
+import hashlib
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -18,22 +19,22 @@ class Job:
     created_at: float
 
 class QueueManager:
-    """Quản lý hàng đợi công việc và Worker Pool"""
-    def __init__(self, num_workers: int = 4):
-        self.queue = asyncio.Queue()
+    """Quản lý hàng chờ chia vùng (Partitioned Queues) và Worker Pool"""
+    def __init__(self, num_workers: int = 8):
         self.num_workers = num_workers
+        # Mỗi worker sẽ có một hàng chờ riêng
+        self.queues: List[asyncio.Queue] = [asyncio.Queue() for _ in range(num_workers)]
         self.workers = []
-        self._chat_locks: Dict[int, asyncio.Lock] = {}
         self._running = False
 
-    def get_chat_lock(self, chat_id: int) -> asyncio.Lock:
-        """Lấy hoặc tạo lock cho từng chat để đảm bảo thứ tự xử lý"""
-        if chat_id not in self._chat_locks:
-            self._chat_locks[chat_id] = asyncio.Lock()
-        return self._chat_locks[chat_id]
+    def _get_partition_index(self, chat_id: int) -> int:
+        """Định tuyến chat_id vào một hàng chờ cố định bằng hash"""
+        # Sử dụng hash để đảm bảo phân phối đều và ổn định
+        hash_val = int(hashlib.md5(str(chat_id).encode()).hexdigest(), 16)
+        return hash_val % self.num_workers
 
     async def add_job(self, chat_id: int, user_id: int, handler_func: Callable, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Thêm một công việc mới vào hàng đợi"""
+        """Thêm một công việc vào hàng chờ tương ứng với chat_id"""
         job = Job(
             chat_id=chat_id,
             user_id=user_id,
@@ -42,42 +43,43 @@ class QueueManager:
             context=context,
             created_at=asyncio.get_event_loop().time()
         )
-        await self.queue.put(job)
-        # logger.debug(f"Job added to queue for chat {chat_id}")
+        partition_idx = self._get_partition_index(chat_id)
+        await self.queues[partition_idx].put(job)
+        # logger.debug(f"Job for chat {chat_id} added to partition {partition_idx}")
 
     async def worker(self, worker_id: int):
-        """Worker xử lý công việc từ hàng đợi"""
-        logger.info(f"Worker {worker_id} started")
+        """Worker xử lý công việc từ hàng chờ riêng của mình (Tuần tự tuyệt đối trong queue này)"""
+        logger.info(f"Partitioned Worker {worker_id} started")
+        queue = self.queues[worker_id]
+        
         while self._running:
             try:
-                # Lấy job từ queue
-                job = await self.queue.get()
+                # Lấy job từ queue riêng
+                job = await queue.get()
                 
-                # Sử dụng lock theo chat để đảm bảo tin nhắn không bị chồng chéo/mất thứ tự trong 1 chat
-                lock = self.get_chat_lock(job.chat_id)
-                async with lock:
-                    try:
-                        # logger.info(f"Worker {worker_id} processing job for chat {job.chat_id}")
-                        await job.handler_func(job.update, job.context)
-                    except Exception as e:
-                        logger.error(f"Error in worker {worker_id} processing job: {e}", exc_info=True)
+                try:
+                    # Xử lý tuần tự: worker này chỉ xử lý 1 job tại 1 thời điểm
+                    # Vì chat_id được gán cố định vào worker này, các tin nhắn cùng chat sẽ luôn đúng thứ tự
+                    await job.handler_func(job.update, job.context)
+                except Exception as e:
+                    logger.error(f"Error in partitioned worker {worker_id} processing chat {job.chat_id}: {e}", exc_info=True)
                 
-                self.queue.task_done()
+                queue.task_done()
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Worker {worker_id} unexpected error: {e}")
+                logger.error(f"Partitioned Worker {worker_id} unexpected error: {e}")
                 await asyncio.sleep(1)
 
     def start(self):
-        """Bắt đầu worker pool"""
+        """Bắt đầu partitioned worker pool"""
         if self._running:
             return
         self._running = True
         for i in range(self.num_workers):
             task = asyncio.create_task(self.worker(i))
             self.workers.append(task)
-        logger.info(f"QueueManager started with {self.num_workers} workers")
+        logger.info(f"Partitioned QueueManager started with {self.num_workers} dedicated workers")
 
     async def stop(self):
         """Dừng worker pool"""
@@ -86,7 +88,7 @@ class QueueManager:
             task.cancel()
         await asyncio.gather(*self.workers, return_exceptions=True)
         self.workers = []
-        logger.info("QueueManager stopped")
+        logger.info("Partitioned QueueManager stopped")
 
 # Global instance
 queue_manager = QueueManager(num_workers=8)
