@@ -38,7 +38,7 @@ async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Kiểm tra nếu đang có ván game đang chạy
-    if session_manager.has_session(chat_id):
+    if await session_manager.has_session(chat_id):
         target_chat_id = chat_id
         suffix = f":{target_chat_id}"
         await update.message.reply_text(
@@ -124,7 +124,7 @@ async def endround_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Bỏ qua kiểm tra quyền sở hữu theo yêu cầu
 
     # 2. Kiểm tra nếu đang có ván game đang chạy trong vòng này
-    if session_manager.has_session(chat_id):
+    if await session_manager.has_session(chat_id):
         target_chat_id = chat_id
         suffix = f":{target_chat_id}"
         await update.message.reply_text(
@@ -228,7 +228,7 @@ async def newsession_command_logic(update: Update, context: ContextTypes.DEFAULT
         return
 
     try:
-        session = session_manager.create_session(
+        session = await session_manager.create_session(
             chat_id,
             1,
             MAX_NUMBERS,
@@ -242,7 +242,7 @@ async def newsession_command_logic(update: Update, context: ContextTypes.DEFAULT
             session.round_name = round_info.get("round_name")
 
         session.add_participant(user_id=user_id, name=user.full_name or (user.username or str(user_id)))
-        session_manager.persist_session(chat_id)
+        await session_manager.persist_session(chat_id)
 
         target_chat_id = chat_id
         suffix = f":{target_chat_id}"
@@ -338,7 +338,7 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     try:
-        session = session_manager.create_session(
+        session = await session_manager.create_session(
             chat_id,
             start_num,
             end_num,
@@ -351,7 +351,7 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             session.round_name = round_info.get("round_name")
 
         session.add_participant(user_id=user_id, name=user.full_name or (user.username or str(user_id)))
-        session_manager.persist_session(chat_id)
+        await session_manager.persist_session(chat_id)
         
         target_chat_id = chat_id
         suffix = f":{target_chat_id}"
@@ -380,7 +380,7 @@ async def startsession_command_logic(update: Update, context: ContextTypes.DEFAU
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
 
     if not session:
         await update.message.reply_text(
@@ -412,7 +412,7 @@ async def startsession_command_logic(update: Update, context: ContextTypes.DEFAU
         return
 
     session.started = True
-    session_manager.persist_session(chat_id)
+    await session_manager.persist_session(chat_id)
 
     game_name = getattr(session, "game_name", None)
     if game_name:
@@ -442,7 +442,7 @@ async def startsession_command_logic(update: Update, context: ContextTypes.DEFAU
         ])
     )
     session.last_control_message_id = sent_msg.message_id
-    session_manager.persist_session(chat_id)
+    await session_manager.persist_session(chat_id)
 
 @queued_handler
 async def startsession_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -454,7 +454,7 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
 
     if not session:
         await update.message.reply_text(
@@ -600,7 +600,7 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
         }
         round_history[chat_id].append(game_record)
     
-    session_manager.delete_session(chat_id)
+    await session_manager.delete_session(chat_id)
 
     target_chat_id = chat_id
     suffix = f":{target_chat_id}"
@@ -627,7 +627,7 @@ async def check_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Logic xử lý lệnh /kinh"""
     chat_id = update.effective_chat.id
     user = update.effective_user
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
 
     key = (chat_id, user.id)
     now = datetime.now()
@@ -686,7 +686,7 @@ async def check_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE
         winner_set = sorted(set(matched))
         if not hasattr(session, "winners"): session.winners = []
         session.winners.append({"user_id": user.id, "name": display_name, "numbers": winner_set, "time": now.isoformat(timespec="seconds")})
-        session_manager.persist_session(chat_id)
+        await session_manager.persist_session(chat_id)
         lines.append(f"\n🏆 *Chúc mừng* {escape_markdown(display_name)} *!* \nVé trúng thưởng: " + ", ".join(f"`{n}`" for n in winner_set))
 
     target_chat_id = chat_id
@@ -714,7 +714,7 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def toggle_remove_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /toggle_remove"""
     chat_id = update.effective_chat.id
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
     
     if not session:
         await update.message.reply_text(
@@ -730,7 +730,7 @@ async def toggle_remove_command(update: Update, context: ContextTypes.DEFAULT_TY
     set_remove_mode(session, new_mode)
     
     # Lưu cấu hình session
-    session_manager.persist_session(chat_id)
+    await session_manager.persist_session(chat_id)
 
     target_chat_id = chat_id
     suffix = f":{target_chat_id}"

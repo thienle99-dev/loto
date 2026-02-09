@@ -32,9 +32,8 @@ class QueueManager:
         self._running = False
 
     def _get_partition_index(self, chat_id: int) -> int:
-        """Định tuyến chat_id vào một hàng chờ cố định bằng hash"""
-        hash_val = int(hashlib.md5(str(chat_id).encode()).hexdigest(), 16)
-        return hash_val % self.num_workers
+        """Định tuyến chat_id vào một hàng chờ cố định bằng modulo nhanh"""
+        return abs(chat_id) % self.num_workers
 
     async def add_job(self, chat_id: int, user_id: int, handler_func: Callable, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Thêm một công việc vào hàng chờ tương ứng với chat_id"""

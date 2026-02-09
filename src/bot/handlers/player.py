@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 async def join_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /tham_gia - chuyển hướng sang lấy vé"""
-    session = session_manager.get_session(update.effective_chat.id)
+    session = await session_manager.get_session(update.effective_chat.id)
     if not session:
         await update.message.reply_text(
             "❌ *Chưa có game nào đang chạy trong chat này\\!*\n\n"
@@ -33,7 +33,7 @@ async def out_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
 
     if not session:
         await update.message.reply_text("❌ Không có game nào đang chạy trong chat này.", parse_mode='Markdown')
@@ -52,11 +52,11 @@ async def out_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     code = user_tickets.pop(user_id, None)
     if code is not None and code in tickets:
         tickets.pop(code, None)
-        session_manager.persist_session(chat_id)
+        await session_manager.persist_session(chat_id)
 
     removed = session.remove_participant(user_id)
     if removed:
-        session_manager.persist_session(chat_id)
+        await session_manager.persist_session(chat_id)
     
     target_chat_id = chat_id
     suffix = f":{target_chat_id}"
@@ -77,7 +77,7 @@ async def out_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def players_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Logic hiển thị danh sách người tham gia game"""
     chat_id = update.effective_chat.id
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
 
     if not session:
         await update.message.reply_text("❌ *Chưa có game nào đang chạy trong chat này\\!*", parse_mode='Markdown')
@@ -141,11 +141,11 @@ async def layve_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
 
     if not session:
         await update.message.reply_text(
-            "❌ *Chưa có game nào trong chat\\!*\n\n"
+            "❌ *Chưa có game nào trong chat\\!*\\n\\n"
             "Host dùng `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo game trước nhé\\.",
             parse_mode="Markdown",
         )
@@ -232,7 +232,7 @@ async def layve_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE
     tickets[code] = user_id
     user_tickets[user_id] = code
     session.add_participant(user_id=user_id, name=user.full_name or (user.username or str(user_id)))
-    session_manager.persist_session(chat_id)
+    await session_manager.persist_session(chat_id)
 
     people_lines = [f"- {escape_markdown(str(uid))}: {escape_markdown(ticket_display_name(c))}" for uid, c in user_tickets.items()]
     list_text = "\n\n👥 *Danh sách người đã lấy vé:*\n" + "\n".join(people_lines) if people_lines else ""
@@ -279,7 +279,7 @@ async def lay_ve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = query.from_user
     user_id = user.id
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
     if not session:
         await query.answer("❌ Chưa có game nào đang chạy.", show_alert=True)
         return
@@ -311,7 +311,7 @@ async def lay_ve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tickets[code] = user_id
     user_tickets[user_id] = code
     session.add_participant(user_id=user_id, name=user.full_name or (user.username or str(user_id)))
-    session_manager.persist_session(chat_id)
+    await session_manager.persist_session(chat_id)
 
     await query.answer(f"✅ Đã chọn {ticket_display_name(code)}!")
     await query.message.reply_text(f"✅ {escape_markdown(user.full_name)} đã lấy vé: {escape_markdown(ticket_display_name(code))}", parse_mode="Markdown")
@@ -360,7 +360,7 @@ async def my_ticket_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
 
     if not session:
         await update.message.reply_text("❌ Chưa có game nào đang chạy trong chat này.", parse_mode='Markdown')

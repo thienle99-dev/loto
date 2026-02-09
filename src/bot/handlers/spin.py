@@ -1,3 +1,4 @@
+import asyncio
 import random
 import logging
 from datetime import datetime
@@ -27,7 +28,7 @@ async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool
     Thực hiện quay số và gửi tin nhắn kết quả.
     Trả về True nếu thành công, False nếu không thể quay tiếp.
     """
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
     if not session:
         return False
 
@@ -35,7 +36,8 @@ async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool
         return False
 
     if session.is_empty():
-        return False
+        # Trả về True để spin_command_logic gọi spin_wheel và bắt được ValueError
+        return True
 
     try:
         now = datetime.now()
@@ -69,7 +71,7 @@ async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool
 
         # 1. Ưu tiên gửi Video Note (Video tròn - Autoplay)
         video_sent = False
-        cached_video_id = get_video_note_cache(number)
+        cached_video_id = await asyncio.to_thread(get_video_note_cache, number)
         
         if cached_video_id:
             try:
@@ -82,14 +84,15 @@ async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool
             video_file = get_video_note_file(number)
             if video_file:
                 try:
-                    with open(video_file, "rb") as vf:
-                        sent_vn = await context.bot.send_video_note(chat_id=chat_id, video_note=vf)
-                        if sent_vn and sent_vn.video_note:
-                            save_video_note_cache(number, sent_vn.video_note.file_id)
-                        video_sent = True
-                except Exception as e:
-                    logger.error(f"Lỗi khi gửi video note: {e}")
-
+                    def read_file(path):
+                        with open(path, "rb") as f:
+                            return f.read()
+                    
+                    video_data = await asyncio.to_thread(read_file, video_file)
+                    sent_vn = await context.bot.send_video_note(chat_id=chat_id, video_note=video_data)
+                    if sent_vn and sent_vn.video_note:
+                        await asyncio.to_thread(save_video_note_cache, number, sent_vn.video_note.file_id)
+                    video_sent = True
                 except Exception as e:
                     logger.error(f"Lỗi khi gửi video note: {e}")
 
@@ -147,11 +150,12 @@ async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool
 
         session.last_control_message_id = sent_control_msg.message_id
         
-        session_manager.persist_session(chat_id)
+        await session_manager.persist_session(chat_id)
         return True
     except Exception as e:
-        logger.error(f"Error in perform_spin: {e}")
-        return False
+        logger.error(f"Error in perform_spin: {e}", exc_info=True)
+        # Re-raise to be caught by the caller
+        raise
 
 async def spin_job(context: ContextTypes.DEFAULT_TYPE):
     """Callback cho JobQueue để quay số tự động"""
@@ -161,16 +165,15 @@ async def spin_job(context: ContextTypes.DEFAULT_TYPE):
         context.job.schedule_removal()
         await context.bot.send_message(chat_id=chat_id, text="🛑 *Dừng quay tự động* (Game đã kết thúc hoặc hết số).", parse_mode='Markdown')
 
-@queued_handler
 async def spin_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Logic xử lý lệnh /quay"""
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
     
     if not session:
         await update.message.reply_text(
-            "❌ *Chưa có game nào trong chat\\!*\n\nHost dùng `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo game trước nhé\\.",
+            "❌ *Chưa có game nào trong chat\\!*\\n\\nHost dùng `/moi <tên_game>` hoặc `/pham_vi <x> <y>` để tạo game trước nhé\\.",
             parse_mode='Markdown'
         )
         return
@@ -217,13 +220,22 @@ async def spin_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     # Quay thủ công 1 lần
     try:
-        await perform_spin(chat_id, context)
+        success = await perform_spin(chat_id, context)
+        if not success:
+            # Trường hợp game chưa bắt đầu hoặc session không tồn tại đã được check ở trên
+            # nhưng nếu vẫn lọt xuống đây thì báo lỗi nhẹ
+            await update.message.reply_text("❌ Không thể thực hiện quay số tại thời điểm này.")
     except ValueError as e:
+        error_msg = str(e)
         query = update.callback_query
         if query:
-            await query.answer(f"❌ {str(e)}", show_alert=True)
+            await query.answer(f"⚠️ {error_msg}", show_alert=True)
         else:
-            await update.message.reply_text(f"❌ {str(e)}")
+            # Thoát markdown nếu cần, hoặc gửi text thường
+            await update.message.reply_text(f"⚠️ {error_msg}")
+    except Exception as e:
+        logger.error(f"Critical error in spin_command_logic: {e}", exc_info=True)
+        await update.message.reply_text("❌ Có lỗi xảy ra khi quay số. Vui lòng thử lại sau.")
 
 @queued_handler
 async def spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -253,7 +265,7 @@ async def stop_spin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def reset_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Logic xử lý lệnh /dat_lai (reset các số đã quay)"""
     chat_id = update.effective_chat.id
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
     
     if not session:
         await update.message.reply_text("❌ *Chưa có game nào trong chat\\!*", parse_mode='Markdown')
@@ -261,7 +273,7 @@ async def reset_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     from src.bot.wheel import reset_session
     reset_session(session)
-    session_manager.persist_session(chat_id)
+    await session_manager.persist_session(chat_id)
 
     await update.message.reply_text("🔄 *Đã làm mới danh sách số quay\\!* \n\nGiờ bạn có thể bắt đầu quay từ đầu.", parse_mode='Markdown')
 
@@ -273,7 +285,7 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def status_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Logic xử lý lệnh /trang_thai"""
     chat_id = update.effective_chat.id
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
     
     if not session:
         await update.message.reply_text("❌ *Chưa có game nào đang chạy\\!*", parse_mode='Markdown')
@@ -312,7 +324,7 @@ async def status_command_logic(update: Update, context: ContextTypes.DEFAULT_TYP
         ])
     )
     session.last_control_message_id = sent_msg.message_id
-    session_manager.persist_session(chat_id)
+    await session_manager.persist_session(chat_id)
 
 @queued_handler
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -322,7 +334,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /lich_su"""
     chat_id = update.effective_chat.id
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
 
     if not session or not session.history:
         target_chat_id = chat_id
@@ -357,7 +369,7 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /xoa - xoá hoàn toàn session"""
     chat_id = update.effective_chat.id
-    session_manager.delete_session(chat_id)
+    await session_manager.delete_session(chat_id)
     target_chat_id = chat_id
     suffix = f":{target_chat_id}"
     await update.message.reply_text(
@@ -369,7 +381,7 @@ async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def lastresult_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Logic xử lý lệnh /ket_qua"""
     chat_id = update.effective_chat.id
-    data = get_last_result_for_chat(chat_id)
+    data = await get_last_result_for_chat(chat_id)
 
     if not data:
         target_chat_id = chat_id
@@ -432,7 +444,7 @@ async def lastresult_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def leaderboard_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Logic xử lý lệnh /xep_hang"""
     chat_id = update.effective_chat.id
-    chat_stats = get_chat_stats(chat_id)
+    chat_stats = await get_chat_stats(chat_id)
 
     if not chat_stats:
         await update.message.reply_text("ℹ️ Chưa có dữ liệu thống kê.", parse_mode='Markdown')
@@ -479,7 +491,7 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /kinh"""
     chat_id = update.effective_chat.id
     user = update.effective_user
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
 
     key = (chat_id, user.id)
     now = datetime.now()
@@ -538,7 +550,7 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         winner_set = sorted(set(matched))
         if not hasattr(session, "winners"): session.winners = []
         session.winners.append({"user_id": user.id, "name": display_name, "numbers": winner_set, "time": now.isoformat(timespec="seconds")})
-        session_manager.persist_session(chat_id)
+        await session_manager.persist_session(chat_id)
         lines.append(f"\n🏆 *Chúc mừng* {escape_markdown(display_name)} *!* \nVé trúng thưởng: " + ", ".join(f"`{n}`" for n in winner_set))
 
     target_chat_id = chat_id
@@ -562,7 +574,7 @@ async def xoakinh_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /xoa_kinh"""
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
 
     if not session or not getattr(session, "winners", []):
         await update.message.reply_text("❌ Không có vé nào để xoá.", parse_mode="Markdown")
@@ -573,7 +585,7 @@ async def xoakinh_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if winners[i].get("user_id") == user_id:
             removed = winners.pop(i)
             session.winners = winners
-            session_manager.persist_session(chat_id)
+            await session_manager.persist_session(chat_id)
             nums_str = ", ".join(f"`{n}`" for n in (removed.get("numbers") or []))
             await update.message.reply_text(f"✅ Đã xoá vé trúng thưởng gần nhất của bạn.\n\n🧾 Vé: {nums_str}", parse_mode="Markdown")
             return

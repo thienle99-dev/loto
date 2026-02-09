@@ -144,43 +144,43 @@ def delete_session_row(chat_id: int) -> None:
 # ---------- Stats ----------
 def save_stats(chat_id: int, chat_stats: Dict[str, Dict[int, Dict[str, Any]]]) -> None:
     """
-    Lưu thống kê cho một chat.
-
-    chat_stats format giống biến global `stats[chat_id]` hiện tại:
-      {
-        "wins": { user_id: {"count": float, "name": str}, ... },
-        "participations": { user_id: {"count": float, "name": str}, ... }
-      }
+    Lưu thống kê cho một chat bằng Transaction để tối ưu cực độ.
     """
     conn = get_connection()
-    cur = conn.cursor()
+    try:
+        cur = conn.cursor()
+        # Bắt đầu transaction
+        cur.execute("BEGIN TRANSACTION")
 
-    wins = chat_stats.get("wins", {})
-    participations = chat_stats.get("participations", {})
+        # Xoá dữ liệu cũ của chat này
+        cur.execute("DELETE FROM stats WHERE chat_id = ?", (chat_id,))
 
-    # Xoá dữ liệu cũ của chat này
-    cur.execute("DELETE FROM stats WHERE chat_id = ?", (chat_id,))
+        # Chuẩn bị dữ liệu cho executemany
+        data_to_insert = []
+        
+        wins = chat_stats.get("wins", {})
+        for user_id, info in wins.items():
+            data_to_insert.append((chat_id, int(user_id), 'wins', float(info.get("count", 0.0)), info.get("name")))
 
-    for user_id, info in wins.items():
-        cur.execute(
-            """
-            INSERT INTO stats(chat_id, user_id, type, count, name)
-            VALUES (?, ?, 'wins', ?, ?)
-            """,
-            (chat_id, int(user_id), float(info.get("count", 0.0)), info.get("name")),
-        )
+        participations = chat_stats.get("participations", {})
+        for user_id, info in participations.items():
+            data_to_insert.append((chat_id, int(user_id), 'participations', float(info.get("count", 0.0)), info.get("name")))
 
-    for user_id, info in participations.items():
-        cur.execute(
-            """
-            INSERT INTO stats(chat_id, user_id, type, count, name)
-            VALUES (?, ?, 'participations', ?, ?)
-            """,
-            (chat_id, int(user_id), float(info.get("count", 0.0)), info.get("name")),
-        )
+        if data_to_insert:
+            cur.executemany(
+                """
+                INSERT INTO stats(chat_id, user_id, type, count, name)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                data_to_insert
+            )
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
 
 
 def load_stats(chat_id: int) -> Dict[str, Dict[int, Dict[str, Any]]]:

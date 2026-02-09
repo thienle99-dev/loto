@@ -12,7 +12,7 @@ async def wait_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     args = context.args
     
-    session = session_manager.get_session(chat_id)
+    session = await session_manager.get_session(chat_id)
     if not session:
         await update.message.reply_text("⚠️ Chưa có game nào đang diễn ra! Hãy tạo game mới bằng `/moi`.")
         return
@@ -81,7 +81,7 @@ async def wait_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 session.waiting_numbers[num].append(user_info)
                 count += 1
                 
-        session_manager.persist_session(chat_id)
+        await session_manager.persist_session(chat_id)
     
         # Tạo message phản hồi
         msg_parts = []

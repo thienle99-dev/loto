@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta
 from telegram import Update
 from src.bot.constants import TICKET_DISPLAY_NAMES, stats, last_results, BET_AMOUNT
@@ -17,16 +18,16 @@ def escape_markdown(text: str) -> str:
         text = text.replace(char, f'\\{char}')
     return text
 
-def get_chat_stats(chat_id: int) -> dict:
+async def get_chat_stats(chat_id: int) -> dict:
     """
-    Lấy thống kê cho một chat.
+    Lấy thống kê cho một chat (Async).
     Ưu tiên cache RAM, nếu chưa có thì load từ SQLite.
     """
     chat_stats = stats.get(chat_id)
     if chat_stats is not None:
         return chat_stats
 
-    loaded = load_stats(chat_id)
+    loaded = await asyncio.to_thread(load_stats, chat_id)
     if loaded:
         stats[chat_id] = loaded
         return loaded
@@ -36,16 +37,16 @@ def get_chat_stats(chat_id: int) -> dict:
     stats[chat_id] = empty
     return empty
 
-def get_last_result_for_chat(chat_id: int) -> dict | None:
+async def get_last_result_for_chat(chat_id: int) -> dict | None:
     """
-    Lấy kết quả game gần nhất cho một chat.
+    Lấy kết quả game gần nhất cho một chat (Async).
     Ưu tiên cache RAM, nếu chưa có thì load từ SQLite.
     """
     data = last_results.get(chat_id)
     if data is not None:
         return data
 
-    loaded = load_last_result(chat_id)
+    loaded = await asyncio.to_thread(load_last_result, chat_id)
     if loaded:
         last_results[chat_id] = loaded
         return loaded
@@ -62,11 +63,11 @@ def is_session_expired(session) -> bool:
 
 async def ensure_active_session(update: Update, chat_id: int, session) -> bool:
     """
-    Đảm bảo session còn hiệu lực.
+    Đảm bảo session còn hiệu lực (Async).
     Nếu đã hết hạn: xoá session, thông báo cho user và trả về False.
     """
     if is_session_expired(session):
-        session_manager.delete_session(chat_id)
+        await session_manager.delete_session(chat_id)
         # Handle cases where update.message might be None (e.g. CallbackQuery)
         msg_target = update.message if update.message else update.callback_query.message
         await msg_target.reply_text(
