@@ -30,7 +30,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown',
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("📋 Menu", callback_data="cmd:menu_fallback"),
-             InlineKeyboardButton("🆕 Vòng mới", callback_data="cmd:vong_moi_input")]
+             InlineKeyboardButton("🕹️ Tạo Game", callback_data="cmd:moi_input")]
         ])
     )
 
@@ -63,10 +63,6 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Inline Keyboard cho Menu - Nhúng ID nhóm vào callback
     keyboard = [
-        [
-            InlineKeyboardButton("🆕 Vòng mới", callback_data=f"cmd:vong_moi_input{suffix}"),
-            InlineKeyboardButton("🏁 Kết thúc Vòng", callback_data=f"cmd:ket_thuc_vong{suffix}"),
-        ],
         [
             InlineKeyboardButton("🕹️ Tạo Game", callback_data=f"cmd:moi_input{suffix}"),
             InlineKeyboardButton("🛑 Kết thúc Game", callback_data=f"cmd:ket_thuc{suffix}"),
@@ -156,7 +152,7 @@ async def generic_command_callback(update: Update, context: ContextTypes.DEFAULT
     mock_update = ProxyUpdate(update, mock_message, mock_chat)
     
     # Import handlers here to avoid circular dependencies
-    from src.bot.handlers.game import vongmoi_command, endround_command, newsession_command_logic, startsession_command_logic, endsession_command_logic
+    from src.bot.handlers.game import newsession_command_logic, startsession_command_logic, endsession_command_logic
     from src.bot.handlers.player import layve_command_logic, players_command_logic
     from src.bot.handlers.spin import spin_command_logic, reset_command_logic, leaderboard_command_logic, status_command_logic, lastresult_command_logic
 
@@ -181,14 +177,6 @@ async def generic_command_callback(update: Update, context: ContextTypes.DEFAULT
             await help_command(mock_update, context)
         elif command == "menu_fallback":
             await menu_command(mock_update, context)
-        elif command == "vong_moi_input":
-            await query.message.reply_text(
-                f"📝 *Tạo Vòng mới cho nhóm {target_chat_id}*\n\nHãy nhập tên vòng chơi mới của bạn:",
-                parse_mode="Markdown",
-                reply_markup=ForceReply(True)
-            )
-            context.user_data["pending_action"] = "vong_moi"
-            context.user_data["target_chat_id"] = target_chat_id
         elif command == "moi_input":
             await query.message.reply_text(
                 f"📝 *Tạo Game mới cho nhóm {target_chat_id}*\n\nHãy nhập tên ván game mới:",
@@ -197,10 +185,8 @@ async def generic_command_callback(update: Update, context: ContextTypes.DEFAULT
             )
             context.user_data["pending_action"] = "moi"
             context.user_data["target_chat_id"] = target_chat_id
-        elif command == "ket_thuc_vong":
-            await endround_command(mock_update, context)
         elif command == "ket_qua":
-            await lastresult_command(mock_update, context)
+            await lastresult_command_logic(mock_update, context)
         
         await query.answer()
     except RetryAfter as e:
@@ -240,9 +226,7 @@ async def handle_force_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
             target_chat_id = int(chat_id_match.group(1))
             
         # Xác định hành động dựa trên từ khóa trong text
-        if "Vòng mới" in reply_text:
-            action = "vong_moi"
-        elif "Game mới" in reply_text:
+        if "Game mới" in reply_text:
             action = "moi"
 
     if not action or not target_chat_id:
@@ -264,12 +248,10 @@ async def handle_force_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
     mock_update = ProxyUpdate(update, target_chat_id)
     context.args = [text] 
     
-    from src.bot.handlers.game import vongmoi_command, newsession_command
+    from src.bot.handlers.game import newsession_command
 
     try:
-        if action == "vong_moi":
-            await vongmoi_command(mock_update, context)
-        elif action == "moi":
+        if action == "moi":
             await newsession_command(mock_update, context)
             
         # Xóa trạng thái chờ sau khi xong
@@ -281,3 +263,69 @@ async def handle_force_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
     except Exception as e:
         logger.error(f"Error in handle_force_reply: {e}")
         # Không cần reply lỗi nếu lệnh đã tự reply rồi
+@queued_handler
+async def member_discovery_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler thụ động: Ghi nhận thông tin user từ mọi tin nhắn trong group để đưa vào danh sách token"""
+    if not update.effective_chat or update.effective_chat.type not in ['group', 'supergroup']:
+        return
+    
+    user = update.effective_user
+    if not user or user.is_bot:
+        return
+
+    chat_id = update.effective_chat.id
+    from src.bot.utils import get_chat_stats, save_stats
+    import asyncio
+
+    chat_stats = await get_chat_stats(chat_id)
+    wins = chat_stats.get("wins", {})
+    
+    uid = user.id
+    if str(uid) not in wins and uid not in wins:
+        wins[uid] = {
+            "count": 0.0,
+            "name": user.full_name,
+            "username": user.username,
+            "is_bot": False
+        }
+        logger.info(f"Phát hiện thành viên mới: {user.full_name} ({uid})")
+        await asyncio.to_thread(save_stats, chat_id, chat_stats)
+    else:
+        # Cập nhật thông tin nếu có thay đổi
+        info = wins.get(str(uid)) or wins.get(uid)
+        if info:
+            if info.get("name") != user.full_name or info.get("username") != user.username:
+                info["name"] = user.full_name
+                info["username"] = user.username
+                info["is_bot"] = False
+                await asyncio.to_thread(save_stats, chat_id, chat_stats)
+
+@queued_handler
+async def new_member_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler ghi nhận thành viên mới gia nhập nhóm"""
+    if not update.message or not update.message.new_chat_members:
+        return
+
+    chat_id = update.effective_chat.id
+    from src.bot.utils import get_chat_stats, save_stats
+    import asyncio
+
+    chat_stats = await get_chat_stats(chat_id)
+    wins = chat_stats.get("wins", {})
+    has_new = False
+
+    for user in update.message.new_chat_members:
+        if user.is_bot: continue
+        uid = user.id
+        if str(uid) not in wins and uid not in wins:
+            wins[uid] = {
+                "count": 0.0,
+                "name": user.full_name,
+                "username": user.username,
+                "is_bot": False
+            }
+            has_new = True
+            logger.info(f"Thành viên mới gia nhập: {user.full_name} ({uid})")
+
+    if has_new:
+        await asyncio.to_thread(save_stats, chat_id, chat_stats)

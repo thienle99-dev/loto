@@ -390,6 +390,22 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
             wins[uid] = info
 
     # Xây dựng danh sách biến động token ván này
+    token_changes_msg = ""
+    if unique_winners or (total_players > 0 and 'unique_winners' in locals()):
+        token_changes_msg = "\n\n💰 *Biến động Token:* \n"
+        # Thắng
+        for uid, (name, _) in unique_winners.items():
+            token_changes_msg += f"• {escape_markdown(name)}: `+{token_per_winner:.1f}`\n"
+        
+        # Thua
+        if unique_winners: # Chỉ hiện người thua nếu có người thắng (zero-sum)
+            for uid in loser_ids:
+                p_info = next((p for p in actual_players if p.get("user_id") == uid), None)
+                name = p_info.get("name") if p_info else str(uid)
+                token_changes_msg += f"• {escape_markdown(name)}: `-{bet_amount:.1f}`\n"
+        
+        if not token_changes_msg.strip() or ("💰" in token_changes_msg and len(token_changes_msg.split("\n")) <= 2):
+            token_changes_msg = "\n\n_(Không có biến động token)_"
 
     host_name = user.full_name or (user.username or str(user_id))
     result_data = {
@@ -411,7 +427,7 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
     
     msg = f"🛑 *Đã kết thúc ván chơi* `{escape_markdown(game_name)}`\\.\n\n" if game_name else \
           "🛑 *Đã kết thúc game hiện tại\\!* \n\n"
-    msg += "Bạn có thể tạo ván chơi mới hoặc vòng mới bằng nút bên dưới\\."
+    msg += "Bạn có thể tạo ván chơi mới bằng nút bên dưới\\."
 
     await update.message.reply_text(
         msg + token_changes_msg, 

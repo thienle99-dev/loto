@@ -1,8 +1,8 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from src.bot.utils import escape_markdown, get_chat_stats, session_manager
-from src.bot.utils import escape_markdown, get_chat_stats, session_manager
+from src.bot.utils import escape_markdown, get_chat_stats, session_manager, save_stats
 import logging
+import asyncio
 
 
 logger = logging.getLogger(__name__)
@@ -77,37 +77,171 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         ])
     )
 
-async def show_user_token_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /xem_token - Xem token của tất cả người tham gia"""
+async def bao_danh_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Callback xử lý khi user nhấn nút Báo danh"""
+    query = update.callback_query
+    user = update.effective_user
     chat_id = update.effective_chat.id
     
-    # 1. Hiện token tổng (từ chat stats)
+    if user.is_bot:
+        await query.answer("🤖 Bot không cần báo danh.")
+        return
+
     chat_stats = await get_chat_stats(chat_id)
     wins = chat_stats.get("wins", {})
     
-    if not wins:
-        await update.message.reply_text(
-            "📊 *DANH SÁCH TOKEN TỔNG*\n\n"
-            "Chưa có dữ liệu token nào trong chat này.",
-            parse_mode='Markdown'
-        )
-        return
-        
+    uid = user.id
+    if str(uid) not in wins and uid not in wins:
+        wins[uid] = {
+            "count": 0.0,
+            "name": user.full_name,
+            "username": user.username,
+            "is_bot": False
+        }
+        await asyncio.to_thread(save_stats, chat_id, chat_stats)
+        await query.answer(f"✅ Đã ghi nhận: {user.full_name}!")
+        # Refres lại danh sách
+        await show_user_token_command(update, context)
+    else:
+        await query.answer("✨ Bạn đã có tên trong danh sách rồi!")
+
+async def show_user_token_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /xem_token - Xem token của tất cả người tham gia"""
+    chat_id = update.effective_chat.id
+    chat_type = update.effective_chat.type
+    is_callback = update.callback_query is not None
+    user = update.effective_user
+    
+    # Hỗ trợ xem token từ xa trong Private Chat: /xem_token <chat_id>
+    target_chat_id = chat_id
+    is_remote = False
+    if chat_type == 'private' and context.args:
+        try:
+            target_chat_id = int(context.args[0])
+            is_remote = True
+        except ValueError:
+            pass
+
+    # 1. Lấy thông tin member count (nếu là group)
+    human_count = 0
+    try:
+        # Lấy type của target chat
+        target_chat = await context.bot.get_chat(target_chat_id)
+        if target_chat.type in ['group', 'supergroup']:
+            total_count = await context.bot.get_chat_member_count(target_chat_id)
+            human_count = max(1, total_count - 1)
+    except:
+        pass
+
+    # 2. Hiện token tổng (từ chat stats)
+    chat_stats = await get_chat_stats(target_chat_id)
+    wins = chat_stats.get("wins", {})
+    participations = chat_stats.get("participations", {})
+    
+    # Merge participations vào danh sách nếu họ chưa có trong wins (token = 0)
+    for uid, info in participations.items():
+        if str(uid) not in wins and uid not in wins:
+            wins[uid] = {
+                "count": 0.0,
+                "name": info.get("name", str(uid)),
+                "username": info.get("username"),
+                "is_bot": False
+            }
+
+    has_updates = False
+    
+    # 3. Thêm Admin vào danh sách (Chỉ khi không phải remote hoặc remote access được)
+    try:
+        admins = await context.bot.get_chat_administrators(target_chat_id)
+        for member in admins:
+            u = member.user
+            if u.is_bot: continue
+            uid = u.id
+            if str(uid) not in wins and uid not in wins:
+                wins[uid] = {
+                    "count": 0.0,
+                    "name": u.full_name,
+                    "username": u.username,
+                    "is_bot": False
+                }
+                has_updates = True
+            else:
+                info = wins.get(str(uid)) or wins.get(uid)
+                if info:
+                    if info.get("name") != u.full_name or info.get("username") != u.username:
+                        info["name"] = u.full_name
+                        info["username"] = u.username
+                        info["is_bot"] = False
+                        has_updates = True
+    except Exception as e:
+        logger.warning(f"Không thể lấy danh sách admin cho chat {target_chat_id}: {e}")
+
+    # 4. Thêm Participants từ session hiện tại
+    session = await session_manager.get_session(target_chat_id)
+    if session:
+        participants = session.get_participants()
+        for p in participants:
+            uid = p.get("user_id")
+            if not uid: continue
+            if str(uid) not in wins and uid not in wins:
+                wins[uid] = {
+                    "count": 0.0,
+                    "name": p.get("name", str(uid)),
+                    "username": None,
+                    "is_bot": False
+                }
+                has_updates = True
+
+    # 5. Lưu nếu có update
+    if has_updates:
+        await asyncio.to_thread(save_stats, target_chat_id, chat_stats)
+
     players = []
     for uid, info in wins.items():
+        if info.get("is_bot"): continue
         players.append({"name": info.get("name", str(uid)), "token": info.get("count", 0.0)})
         
     players.sort(key=lambda x: x["token"], reverse=True)
+    recorded_count = len(players)
     
-    message = "📊 *DANH SÁCH TOKEN TỔNG*\n"
-    message += "━━━━━━━━━━━━━━━━━━━\n\n"
-    for p in players:
-        token = p["token"]
-        txt_token = f"+{token:.1f}" if token > 0 else f"{token:.1f}"
-        message += f"• {escape_markdown(p['name'])}: `{txt_token}`\n"
-    message += "\n━━━━━━━━━━━━━━━━━━━"
+    # Thêm placeholder cho những thành viên chưa được bot "thấy"
+    if human_count > recorded_count:
+        gap = human_count - recorded_count
+        for _ in range(gap):
+            players.append({"name": "❔ (Chưa báo danh)", "token": 0.0})
+    
+    # Build Header
+    try:
+        title = (await context.bot.get_chat(target_chat_id)).title or "Nhóm"
+    except:
+        title = "Nhóm"
 
-    await update.message.reply_text(message, parse_mode='Markdown')
+    header = f"📊 *TOKEN TỔNG:* `{escape_markdown(title)}`"
+    if human_count > 0:
+        header += f"\n👥 (Sĩ số: {human_count})"
+    
+    if not players:
+        message = f"{header}\n\nChưa có dữ liệu token nào."
+    else:
+        message = f"{header}\n"
+        message += "━━━━━━━━━━━━━━━━━━━\n\n"
+        for p in players:
+            token = p["token"]
+            txt_token = f"+{token:.1f}" if token > 0 else f"{token:.1f}"
+            message += f"• {escape_markdown(p['name'])}: `{txt_token}`\n"
+        message += "\n━━━━━━━━━━━━━━━━━━━"
+
+    # Nút Báo danh nếu còn thiếu member (Chỉ hiện khi ở trong group đó)
+    keyboard = []
+    if not is_remote and human_count > recorded_count:
+        keyboard.append([InlineKeyboardButton("🙋 Báo danh (Hiện tên)", callback_data="bao_danh")])
+
+    reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
+
+    if is_callback:
+        await update.callback_query.message.edit_text(message, parse_mode='Markdown', reply_markup=reply_markup)
+    else:
+        await update.message.reply_text(message, parse_mode='Markdown', reply_markup=reply_markup)
 
 async def reset_token_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /reset_token - Đặt lại toàn bộ token về 0 cho chat này"""

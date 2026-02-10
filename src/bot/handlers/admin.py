@@ -46,6 +46,48 @@ async def account_list_command(update: Update, context: ContextTypes.DEFAULT_TYP
 
     await update.message.reply_text(message, parse_mode='Markdown')
 
+async def group_list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /danh_sach_nhom - Chỉ dành cho Admin trong chat riêng tư"""
+    user = update.effective_user
+    chat = update.effective_chat
+    
+    # 1. Kiểm tra Admin
+    if user.id not in ADMIN_IDS:
+        return
+
+    # 2. Kiểm tra Chat riêng tư (Private)
+    if chat.type != 'private':
+        await update.message.reply_text("⚠️ Lệnh này chỉ có thể thực hiện trong chat riêng tư với bot.")
+        return
+
+    # 3. Lấy danh sách group từ DB
+    from src.db.sqlite_store import get_unique_groups
+    chat_ids = await asyncio.to_thread(get_unique_groups)
+    
+    if not chat_ids:
+        await update.message.reply_text("ℹ️ Chưa có dữ liệu nhóm nào.")
+        return
+
+    message = "🏘️ *DANH SÁCH NHÓM ĐÃ THAM GIA*\n"
+    message += "━━━━━━━━━━━━━━━━━━━\n\n"
+    
+    count = 0
+    for cid in chat_ids:
+        try:
+            chat_info = await context.bot.get_chat(cid)
+            title = chat_info.title or "Unknown Group"
+            message += f"• `{cid}`: *{escape_markdown(title)}*\n"
+            count += 1
+        except Exception:
+            # Có thể bot đã bị kick khỏi group
+            message += f"• `{cid}`: _(Bot đã rời nhóm hoặc không truy cập được)_\n"
+            count += 1
+            
+    message += "\n━━━━━━━━━━━━━━━━━━━\n"
+    message += f"Tổng cộng: `{count}` nhóm."
+    
+    await update.message.reply_text(message, parse_mode='Markdown')
+
 async def set_token_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /set_token - Chỉ dành cho Admin"""
     user = update.effective_user

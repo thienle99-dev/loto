@@ -330,6 +330,15 @@ def update_user_token(chat_id: int, user_id: int, amount: float) -> bool:
     conn.close()
     return True
 
+def get_unique_groups() -> list[int]:
+    """Lấy danh sách các unique chat_id từ bảng stats."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT DISTINCT chat_id FROM stats")
+    rows = cur.fetchall()
+    conn.close()
+    return [r["chat_id"] for r in rows]
+
 def get_user_id_by_username(chat_id: int, username: str) -> Optional[int]:
     """Tìm user_id từ username trong một chat cụ thể."""
     username = username.lstrip('@').lower()

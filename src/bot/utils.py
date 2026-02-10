@@ -2,7 +2,7 @@ import asyncio
 from datetime import datetime, timedelta
 from telegram import Update
 from src.bot.constants import TICKET_DISPLAY_NAMES, stats, last_results
-from src.db.sqlite_store import load_stats, load_last_result
+from src.db.sqlite_store import load_stats, load_last_result, save_stats
 from src.bot.session_manager import SessionManager
 
 session_manager = SessionManager()

@@ -25,7 +25,9 @@ from src.bot.handlers.base import (
     help_command, 
     menu_command, 
     generic_command_callback, 
-    handle_force_reply
+    handle_force_reply,
+    member_discovery_handler,
+    new_member_handler
 )
 
 # Import game handlers
@@ -64,13 +66,13 @@ from src.bot.handlers.spin import (
 )
 
 # Import leaderboard handler
-from src.bot.handlers.leaderboard import leaderboard_command, show_user_token_command, reset_token_command, xoa_token_command
+from src.bot.handlers.leaderboard import leaderboard_command, show_user_token_command, reset_token_command, xoa_token_command, bao_danh_callback
 
 # Import wait handler
 from src.bot.handlers.wait import wait_command
 
 # Import admin handler
-from src.bot.handlers.admin import account_list_command, set_token_command
+from src.bot.handlers.admin import account_list_command, set_token_command, group_list_command
 
 # Import inline handler
 from src.bot.handlers.inline import inline_query_handler
@@ -130,6 +132,7 @@ def setup_bot(token: str) -> Application:
             ("doi", "Đợi số"),
             ("cuoc", "Đặt tiền cược"),
             ("reset_kinh", "Reset danh sách kinh"),
+            ("danh_sach_nhom", "Danh sách nhóm (Admin)"),
             ("tro_giup", "Trợ giúp")
         ])
         # Bắt đầu worker pool để xử lý hàng đợi
@@ -163,6 +166,7 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("ve_cua_toi", my_ticket_command))
     application.add_handler(CommandHandler("tra_ve", out_command))
     application.add_handler(CallbackQueryHandler(lay_ve_callback, pattern="^lay_ve:"))
+    application.add_handler(CallbackQueryHandler(bao_danh_callback, pattern="^bao_danh$"))
 
     # Spin & Status
     application.add_handler(CommandHandler("quay", spin_command))
@@ -178,7 +182,6 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("xoa_token", xoa_token_command))
     application.add_handler(CommandHandler("clear_token", reset_token_command))
     application.add_handler(CommandHandler("reset_token", reset_token_command))
-    application.add_handler(CommandHandler("reset_token", reset_token_command))
     application.add_handler(CommandHandler("xep_hang", leaderboard_command))
     application.add_handler(CommandHandler("doi", wait_command))
     application.add_handler(CommandHandler("tro_giup", help_command))
@@ -186,6 +189,7 @@ def setup_bot(token: str) -> Application:
     # Admin commands
     application.add_handler(CommandHandler("account_list", account_list_command))
     application.add_handler(CommandHandler("set_token", set_token_command))
+    application.add_handler(CommandHandler("danh_sach_nhom", group_list_command))
 
     # Inline Query Handler
     application.add_handler(InlineQueryHandler(inline_query_handler))
@@ -194,5 +198,9 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CallbackQueryHandler(generic_command_callback, pattern="^cmd:"))
     application.add_handler(MessageHandler(filters.REPLY & filters.TEXT, handle_force_reply))
     application.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, web_app_data_handler))
+    
+    # Passive member discovery (capture user info from group chat)
+    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member_handler))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.GROUPS, member_discovery_handler))
     
     return application
