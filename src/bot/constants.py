@@ -1,13 +1,5 @@
 from pathlib import Path
 
-# Vòng chơi (vòng mới) đang hoạt động theo chat:
-# {chat_id: {"round_name": str, "owner_id": int, "created_at": str}}
-active_rounds: dict[int, dict] = {}
-
-# Lịch sử các game trong mỗi vòng chơi:
-# {chat_id: [{"game_name": str, "winners": list, "participants": list, "ended_at": str}, ...]}
-round_history: dict[int, list] = {}
-
 # Cấu hình mặc định cho ván game
 MAX_NUMBERS = 90
 DEFAULT_REMOVE_AFTER_SPIN = True
@@ -72,8 +64,8 @@ TICKET_NAMES = {
 
 # Các câu thoại vui khi số đợi xuất hiện
 WAITING_RESPONSES = [
-    "� Số **{number}** về rồi kìa! {mentions} đâu ra nhận hàng!",
-    "�🚀 Chờ đợi là hạnh phúc! Em **{number}** đã cập bến. Chúc mừng {mentions}!",
+    " Số **{number}** về rồi kìa! {mentions} đâu ra nhận hàng!",
+    "🚀 Chờ đợi là hạnh phúc! Em **{number}** đã cập bến. Chúc mừng {mentions}!",
     "📢 Loa loa! Tin chuẩn chưa anh em? Số **{number}** nổ rồi kìa {mentions} ơi!",
     "🎉 Cuối cùng thì **{number}** cũng chịu ra mặt! {mentions} check ngay đi!",
     "👀 Ơ kìa, ai đợi số **{number}** thì dậy đi thôi! {mentions} dậy đi!",

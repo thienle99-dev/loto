@@ -1,8 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from src.bot.utils import escape_markdown, get_chat_stats, session_manager
-from src.bot.constants import round_history, active_rounds
-from src.db.sqlite_store import save_stats
+from src.bot.utils import escape_markdown, get_chat_stats, session_manager
 import logging
 
 
@@ -74,40 +73,7 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         message,
         parse_mode='Markdown',
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🕹️ Game mới", callback_data=f"cmd:moi_input{suffix}"),
-             InlineKeyboardButton("🔄 Vòng mới", callback_data=f"cmd:vong_moi_input{suffix}")]
-        ])
-    )
-
-async def leaderboard_round_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /xep_hang_vong - Xem BXH trong vòng chơi hiện tại"""
-    chat_id = update.effective_chat.id
-    
-    if chat_id not in active_rounds:
-        await update.message.reply_text("⚠️ Chưa có vòng chơi nào đang diễn ra.")
-        return
-        
-    round_info = active_rounds[chat_id]
-    round_name = round_info.get("round_name", "Hiện tại")
-    
-    games = round_history.get(chat_id, [])
-    if not games:
-        await update.message.reply_text("ℹ️ Chưa có game nào kết thúc trong vòng này.")
-        return
-        
-    # Tính toán và lấy text BXH
-    from src.bot.utils import calculate_round_tokens, get_round_leaderboard_text
-    user_tokens = calculate_round_tokens(games)
-    message = get_round_leaderboard_text(round_name, user_tokens)
-    
-    target_chat_id = chat_id
-    suffix = f":{target_chat_id}"
-    
-    await update.message.reply_text(
-        message, 
-        parse_mode='Markdown',
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🏁 Kết thúc Vòng", callback_data=f"cmd:ket_thuc_vong{suffix}")]
+            [InlineKeyboardButton("🕹️ Game mới", callback_data=f"cmd:moi_input{suffix}")]
         ])
     )
 
@@ -115,62 +81,7 @@ async def show_user_token_command(update: Update, context: ContextTypes.DEFAULT_
     """Handler cho lệnh /xem_token - Xem token của tất cả người tham gia"""
     chat_id = update.effective_chat.id
     
-    # 1. Kiểm tra nếu có vòng chơi
-    if chat_id in active_rounds:
-        round_info = active_rounds[chat_id]
-        round_name = round_info.get("round_name", "Hiện tại")
-        games = round_history.get(chat_id, [])
-        
-        logger.info(f"[/xem_token] Chat {chat_id}: Round '{round_name}', {len(games)} games in history")
-        
-        from src.bot.utils import calculate_round_tokens
-        user_tokens = calculate_round_tokens(games)
-        
-        logger.info(f"[/xem_token] Calculated tokens for {len(user_tokens)} users")
-        
-        # Kiểm tra nếu có game đang chơi
-        session = await session_manager.get_session(chat_id)
-        has_active_game = session is not None
-        
-        if not user_tokens:
-            # Phân biệt giữa "chưa có game nào kết thúc" vs "vòng rỗng"
-            if has_active_game:
-                await update.message.reply_text(
-                    f"📊 *DANH SÁCH TOKEN VÒNG: {round_name}*\n\n"
-                    "ℹ️ Vòng mới bắt đầu\\. Hãy kết thúc ván đầu tiên bằng `/ket_thuc` để xem token\\!\n\n"
-                    "📝 _Game hiện tại chưa được tính vào tổng\\._",
-                    parse_mode='Markdown'
-                )
-            else:
-                await update.message.reply_text(
-                    f"📊 *DANH SÁCH TOKEN VÒNG: {round_name}*\n\n"
-                    "ℹ️ Chưa có game nào kết thúc trong vòng này\\.",
-                    parse_mode='Markdown'
-                )
-            return
-
-        players = sorted(user_tokens.values(), key=lambda x: x["token"], reverse=True)
-        
-        # Build message without over-escaping
-        message = f"📊 *DANH SÁCH TOKEN VÒNG: {round_name}*\n"
-        message += "━━━━━━━━━━━━━━━━━━━\n\n"
-        
-        for p in players:
-            token = p["token"]
-            txt_token = f"+{token:.1f}" if token > 0 else f"{token:.1f}"
-            name = escape_markdown(p['name'])
-            message += f"• {name}: `{txt_token}`\n"
-            
-        message += "\n━━━━━━━━━━━━━━━━━━━"
-        
-        # Thêm ghi chú nếu có game đang chơi
-        if has_active_game:
-            message += "\n\n📝 _Game hiện tại chưa được tính vào tổng\\._"
-        
-        await update.message.reply_text(message, parse_mode='Markdown')
-        return
-
-    # 2. Nếu không có vòng, hiện token tổng (từ chat stats)
+    # 1. Hiện token tổng (từ chat stats)
     chat_stats = await get_chat_stats(chat_id)
     wins = chat_stats.get("wins", {})
     
@@ -213,6 +124,11 @@ async def reset_token_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     # User nói "clear token", nên ta chỉ clear wins.
     
     save_stats(chat_id, chat_stats)
+    
+    # Xoá cache RAM
+    from src.bot.constants import stats
+    if chat_id in stats:
+        del stats[chat_id]
     
     await update.message.reply_text(
         "✨ *Đã đặt lại toàn bộ Token về 0\\!*",

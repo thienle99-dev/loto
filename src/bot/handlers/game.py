@@ -2,10 +2,10 @@ from datetime import datetime
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from src.bot.constants import active_rounds, round_history, MAX_NUMBERS, DEFAULT_REMOVE_AFTER_SPIN, last_results, BET_AMOUNT, COOLDOWN_CHECK_SECONDS
+from src.bot.constants import MAX_NUMBERS, DEFAULT_REMOVE_AFTER_SPIN, last_results, BET_AMOUNT, COOLDOWN_CHECK_SECONDS
 from src.bot.utils import escape_markdown, session_manager, get_chat_stats, ensure_active_session
 from src.utils.validators import validate_range, validate_number
-from src.db.sqlite_store import save_stats, save_last_result, save_active_round, delete_active_round_row
+from src.db.sqlite_store import save_stats, save_last_result
 from src.bot.worker import queued_handler
 
 logger = logging.getLogger(__name__)
@@ -13,185 +13,11 @@ logger = logging.getLogger(__name__)
 # Cache thời gian kiểm tra kinh của từng user: {(chat_id, user_id): datetime}
 last_check_time: dict[tuple[int, int], datetime] = {}
 
-async def vongmoi_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /vong_moi <tên_vòng> - tạo vòng chơi mới trong chat."""
-    chat_id = update.effective_chat.id
-    user = update.effective_user
-    user_id = user.id
-
-    if not context.args:
-        target_chat_id = chat_id
-        suffix = f":{target_chat_id}"
-        await update.message.reply_text(
-            "❌ *Sai cú pháp\\!*\n\n"
-            "Sử dụng: `/vong_moi <tên_vòng>`\n"
-            "Ví dụ: `/vong_moi Loto tối nay`\n\n"
-            "ℹ️ Vòng chơi là đơn vị lớn nhất, chứa nhiều ván game bên trong.",
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📋 Menu điều khiển", callback_data=f"cmd:menu_fallback{suffix}")]])
-        )
-        return
-
-    round_name = " ".join(context.args).strip()
-    if not round_name:
-        await update.message.reply_text(
-            "❌ Tên vòng không được để trống.",
-            parse_mode="Markdown",
-        )
-        return
-
-    # Kiểm tra nếu đang có ván game đang chạy
-    if await session_manager.has_session(chat_id):
-        target_chat_id = chat_id
-        suffix = f":{target_chat_id}"
-        await update.message.reply_text(
-            "⚠️ *Đang có ván game hoạt động\\!*\n\n"
-            "Vui lòng kết thúc ván game hiện tại trước khi tạo vòng chơi mới bì vòng mới sẽ làm thay đổi lịch sử thống kê.\n"
-            "Hãy dùng các nút bên dưới để điều khiển nhanh.",
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🎲 Quay số", callback_data=f"cmd:quay{suffix}"),
-                 InlineKeyboardButton("🛑 Kết thúc Game", callback_data=f"cmd:ket_thuc{suffix}")]
-            ])
-        )
-        return
-
-    # Kiểm tra nếu đã có vòng đang hoạt động
-    if chat_id in active_rounds:
-        current_round = active_rounds[chat_id].get("round_name", "Không tên")
-        target_chat_id = chat_id
-        suffix = f":{target_chat_id}"
-        await update.message.reply_text(
-            f"⚠️ *Đang có vòng chơi hoạt động\\!*\n\n"
-            f"Vòng: `{escape_markdown(current_round)}`\n"
-            f"Vui lòng kết thúc vòng cũ trước khi tạo vòng mới\\.",
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🏁 Kết thúc Vòng cũ", callback_data=f"cmd:ket_thuc_vong{suffix}")]
-            ])
-        )
-        return
-
-    # Lưu vào RAM và DB
-    active_rounds[chat_id] = {
-        "round_name": round_name,
-        "owner_id": user_id,
-        "created_at": datetime.now().isoformat(timespec="seconds"),
-    }
-    save_active_round(chat_id, active_rounds[chat_id])
-    
-    # Khởi tạo lịch sử game cho vòng mới
-    round_history[chat_id] = []
-    
-    # Reset thống kê của chat cho vòng mới (để token tính từ 0)
-    chat_stats = await get_chat_stats(chat_id)
-    chat_stats["wins"] = {}
-    chat_stats["participations"] = {}
-    save_stats(chat_id, chat_stats)
-
-    target_chat_id = chat_id
-    suffix = f":{target_chat_id}"
-
-    await update.message.reply_text(
-        f"✅ *Đã tạo vòng chơi mới\\!* \n"
-        f"🔄 Tên vòng: `{escape_markdown(round_name)}`\n"
-        f"🧹 *Đã reset toàn bộ Token & Thống kê về 0.*\n\n"
-        "Giờ bạn có thể dùng các nút bên dưới hoặc lệnh gõ:\n"
-        "• `/moi <tên_game>` để tạo ván game\n"
-        "• `/ket_thuc_vong` để kết thúc vòng chơi",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("🕹️ Tạo Game", callback_data=f"cmd:moi_input{suffix}"),
-                InlineKeyboardButton("🏁 Kết thúc Vòng", callback_data=f"cmd:ket_thuc_vong{suffix}"),
-            ]
-        ])
-    )
-
-async def endround_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler cho lệnh /ket_thuc_vong - kết thúc vòng chơi hiện tại"""
-    chat_id = update.effective_chat.id
-    
-    if chat_id not in active_rounds:
-         await update.message.reply_text(
-            "ℹ️ Hiện không có vòng chơi nào đang hoạt động.",
-            parse_mode='Markdown'
-        )
-         return
-
-    round_info = active_rounds[chat_id]
-    round_name = round_info.get("round_name", "Không tên")
-    owner_id = round_info.get("owner_id")
-    user_id = update.effective_user.id
-
-    # Bỏ qua kiểm tra quyền sở hữu theo yêu cầu
-
-    # 2. Kiểm tra nếu đang có ván game đang chạy trong vòng này
-    if await session_manager.has_session(chat_id):
-        target_chat_id = chat_id
-        suffix = f":{target_chat_id}"
-        await update.message.reply_text(
-            "⚠️ *Không thể kết thúc vòng khi còn ván game đang chạy\\!*\n\n"
-            "Vui lòng kết thúc ván game bằng `/ket_thuc` trước.",
-            parse_mode='Markdown',
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🎲 Quay số", callback_data=f"cmd:quay{suffix}"),
-                 InlineKeyboardButton("🛑 Kết thúc Game", callback_data=f"cmd:ket_thuc{suffix}")]
-            ])
-        )
-        return
-
-    # Hiển thị BXH cuối cùng của vòng trước khi xoá
-    games = round_history.get(chat_id, [])
-    if games:
-        from src.bot.utils import calculate_round_tokens, get_round_leaderboard_text
-        user_tokens = calculate_round_tokens(games)
-        leaderboard_msg = get_round_leaderboard_text(round_name, user_tokens)
-        await update.message.reply_text(
-            f"🏁 *KẾT THÚC VÒNG CHƠI: {escape_markdown(round_name)}*\n\n" + leaderboard_msg,
-            parse_mode='Markdown'
-        )
-
-    # 3. Xoá vòng chơi khỏi active_rounds (RAM) và DB
-    del active_rounds[chat_id]
-    delete_active_round_row(chat_id)
-    
-    # Xóa lịch sử game của vòng
-    if chat_id in round_history:
-        del round_history[chat_id]
-    
-    target_chat_id = chat_id
-    suffix = f":{target_chat_id}"
-
-    await update.message.reply_text(
-        f"🛑 Đã kết thúc vòng chơi *{escape_markdown(round_name)}*\\.\n\n"
-        "Giờ bạn có thể tạo vòng mới hoặc ván game mới.",
-        parse_mode='Markdown',
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔄 Vòng mới", callback_data=f"cmd:vong_moi_input{suffix}"),
-             InlineKeyboardButton("🕹️ Game mới", callback_data=f"cmd:moi_input{suffix}")]
-        ])
-    )
-
 async def newsession_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Logic xử lý lệnh /moi <tên_game>"""
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id
-
-    if chat_id not in active_rounds:
-        target_chat_id = chat_id
-        suffix = f":{target_chat_id}"
-        await update.message.reply_text(
-            "⚠️ *Bạn cần tạo vòng chơi trước khi tạo game\\!*\n\n"
-            "Việc tạo vòng giúp bot thống kê điểm và lưu lịch sử chính xác hơn.\n"
-            "Hãy dùng nút bên dưới hoặc gõ `/vong_moi <tên_vòng>`.",
-            parse_mode='Markdown',
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔄 Tạo Vòng mới", callback_data=f"cmd:vong_moi_input{suffix}")]
-            ])
-        )
-        return
 
     if await session_manager.has_session(chat_id):
         target_chat_id = chat_id
@@ -240,10 +66,6 @@ async def newsession_command_logic(update: Update, context: ContextTypes.DEFAULT
         session.game_name = game_name
         session.owner_id = user_id
 
-        round_info = active_rounds.get(chat_id)
-        if round_info:
-            session.round_name = round_info.get("round_name")
-
         session.add_participant(user_id=user_id, name=user.full_name or (user.username or str(user_id)))
         await session_manager.persist_session(chat_id)
 
@@ -254,7 +76,6 @@ async def newsession_command_logic(update: Update, context: ContextTypes.DEFAULT
 
         await update.message.reply_text(
             f"✅ *Đã tạo game mới\\!*\n\n"
-            f"🔄 Vòng: `{escape_markdown(round_name)}`\n"
             f"🕹️ Tên game: `{escape_markdown(game_name)}`\n"
             f"📊 Khoảng số: `1 -> {MAX_NUMBERS}`\n"
             f"📊 Tổng số: `{session.get_total_numbers()}`\n"
@@ -282,19 +103,6 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     
-    if chat_id not in active_rounds:
-        target_chat_id = chat_id
-        suffix = f":{target_chat_id}"
-        await update.message.reply_text(
-            "⚠️ *Bạn cần tạo vòng chơi trước khi tạo game\\!*\n\n"
-            "Hãy dùng nút bên dưới hoặc gõ `/vong_moi <tên_vòng>`.",
-            parse_mode='Markdown',
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔄 Tạo Vòng mới", callback_data=f"cmd:vong_moi_input{suffix}")]
-            ])
-        )
-        return
-
     if await session_manager.has_session(chat_id):
         target_chat_id = chat_id
         suffix = f":{target_chat_id}"
@@ -349,9 +157,7 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         session.owner_id = user_id
 
-        round_info = active_rounds.get(chat_id)
-        if round_info:
-            session.round_name = round_info.get("round_name")
+        session.owner_id = user_id
 
         session.add_participant(user_id=user_id, name=user.full_name or (user.username or str(user_id)))
         await session_manager.persist_session(chat_id)
@@ -363,7 +169,6 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(
             f"✅ *Đã tạo game mới\\!*\n\n"
-            f"🔄 Vòng: `{escape_markdown(round_name)}`\n"
             f"📊 Khoảng số: `{start_num} -> {end_num}`\n"
             f"📊 Tổng số: `{session.get_total_numbers()}`\n"
             f"⚙️ Loại bỏ sau khi quay: `{'Có' if session.remove_after_spin else 'Không'}`\n\n"
@@ -499,15 +304,17 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
         uid = p.get("user_id")
         if uid is None: continue
         name = p.get("name") or str(uid)
-        info = participations.get(uid, {"count": 0.0, "name": name})
+        username = p.get("username")
+        info = participations.get(uid, {"count": 0.0, "name": name, "username": username})
         info["count"] += 1.0
         info["name"] = name
+        info["username"] = username
         participations[uid] = info
 
     # Tính điểm token theo công thức mới: CHỈ TÍNH KHI CÓ NGƯỜI THẮNG
     wins = chat_stats["wins"]
     # Lấy danh sách winner (CHỈ TÍNH NGƯỜI CÓ TRONG DANH SÁCH actual_players)
-    unique_winners = {w.get("user_id"): w.get("name") or str(w.get("user_id")) 
+    unique_winners = {w.get("user_id"): (w.get("name") or str(w.get("user_id")), w.get("username")) 
                       for w in getattr(session, "winners", []) 
                       if w.get("user_id") is not None and w.get("user_id") in ticket_holder_ids}
 
@@ -524,10 +331,11 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
         if num_winners > 1:
             split_msg = f"\n💡 *Chia đều thưởng:* Mỗi người trúng nhận `+{token_per_winner:.1f}` token từ {total_players - num_winners} người thua."
 
-        for uid, name in unique_winners.items():
-            info = wins.get(uid, {"count": 0.0, "name": name})
+        for uid, (name, username) in unique_winners.items():
+            info = wins.get(uid, {"count": 0.0, "name": name, "username": username})
             info["count"] += token_per_winner
             info["name"] = name
+            info["username"] = username
             wins[uid] = info
         
         # Người thua: mất cược (CHỈ TÍNH NGƯỜI CÓ VÉ)
@@ -537,44 +345,14 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
         for uid in loser_ids:
             p_info = next((p for p in actual_players if p.get("user_id") == uid), None)
             name = p_info.get("name") if p_info else str(uid)
-            info = wins.get(uid, {"count": 0.0, "name": name})
+            username = p_info.get("username") if p_info else None
+            info = wins.get(uid, {"count": 0.0, "name": name, "username": username})
             info["count"] -= bet_amount
             info["name"] = name
+            info["username"] = username
             wins[uid] = info
 
-    # Xây dựng danh sách biến động token ván này (CHỈ HIỂN THỊ NGƯỜI CÓ VÉ)
-    token_results = []
-    if total_players > 0 and unique_winners:
-        for p in actual_players:
-            p_uid = p.get("user_id")
-            if p_uid is None: continue
-            p_name = p.get("name") or str(p_uid)
-            
-            if p_uid in unique_winners:
-                token_results.append(f"   • {escape_markdown(p_name)}: `+{token_per_winner:.1f}` 🏆")
-            else:
-                token_results.append(f"   • {escape_markdown(p_name)}: `-{bet_amount:.1f}`")
-    elif total_players > 0 and not unique_winners:
-        token_results.append("   _(Không ai thắng, token không thay đổi)_")
-    
-    token_changes_msg = ""
-    if token_results:
-        token_changes_msg = "\n\n💰 *Biến động Token ván này:*\n" + "\n".join(token_results)
-        if 'split_msg' in locals() and split_msg:
-            token_changes_msg += split_msg
-        
-    # Tính toán Token tổng cộng trong vòng (cumulative)
-    cumulative_results = []
-    # Sắp xếp theo token giảm dần
-    sorted_wins = sorted(wins.items(), key=lambda x: x[1].get("count", 0.0), reverse=True)
-    for uid, info in sorted_wins:
-        total_token = info.get("count", 0.0)
-        p_name = info.get("name") or str(uid)
-        txt_token = f"+{total_token:.1f}" if total_token > 0 else f"{total_token:.1f}"
-        cumulative_results.append(f"   • {escape_markdown(p_name)}: `{txt_token}`")
-        
-    if cumulative_results:
-        token_changes_msg += "\n\n🏆 *Tổng Token sau ván này:*\n" + "\n".join(cumulative_results)
+    # Xây dựng danh sách biến động token ván này
 
     host_name = user.full_name or (user.username or str(user_id))
     result_data = {
@@ -589,28 +367,6 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
     save_stats(chat_id, chat_stats)
     save_last_result(chat_id, result_data)
     
-    # Lưu game vào lịch sử vòng chơi
-    if chat_id in active_rounds:
-        if chat_id not in round_history:
-            round_history[chat_id] = []
-
-        game_record = {
-            "game_name": game_name,
-            "host_name": host_name,
-            "winners": list(getattr(session, "winners", [])),
-            "participants": actual_players,  # Sử dụng actual_players đã tính ở trên
-            "numbers_drawn": len(session.history),
-            "ended_at": datetime.now().isoformat(timespec="seconds"),
-        }
-        round_history[chat_id].append(game_record)
-        logger.info(f"Saved game to round_history. Chat {chat_id} now has {len(round_history[chat_id])} games. Participants: {len(actual_players)}")
-
-        # Lưu lịch sử vòng chơi vào DB
-        from src.db.sqlite_store import save_round_history
-        await asyncio.to_thread(save_round_history, chat_id, round_history[chat_id])
-        
-        # Lưu session hiện tại xuống JSON session history (backup)
-    
     await session_manager.delete_session(chat_id)
 
     target_chat_id = chat_id
@@ -624,8 +380,7 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
         msg + token_changes_msg, 
         parse_mode='Markdown',
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔄 Vòng mới", callback_data=f"cmd:vong_moi_input{suffix}"),
-             InlineKeyboardButton("🕹️ Game mới", callback_data=f"cmd:moi_input{suffix}")]
+            [InlineKeyboardButton("🕹️ Game mới", callback_data=f"cmd:moi_input{suffix}")]
         ])
     )
 

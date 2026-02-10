@@ -105,9 +105,10 @@ async def set_token_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     entity, text = next(iter(mentions.items()))
                     if entity.type == "text_mention":
                         target_user_id = entity.user.id
-                    else:
-                        # Cần search database theo username (phức tạp hơn, tạm thời chỉ support reply/ID/text_mention)
-                        pass
+                    elif entity.type == "mention":
+                        # Resolve username from database
+                        username = text.lstrip('@')
+                        target_user_id = get_user_id_by_username(update.effective_chat.id, username)
                     
                     try: amount = float(context.args[-1])
                     except: pass
@@ -122,7 +123,7 @@ async def set_token_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # 3. Cập nhật database
-    from src.db.sqlite_store import update_user_token
+    from src.db.sqlite_store import get_all_users, update_user_token, get_user_id_by_username
     from src.bot.constants import stats
     
     await asyncio.to_thread(update_user_token, target_chat_id, target_user_id, amount)

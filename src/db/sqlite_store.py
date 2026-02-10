@@ -41,66 +41,18 @@ def init_db() -> None:
             type TEXT NOT NULL, -- 'wins' hoặc 'participations'
             count REAL NOT NULL,
             name TEXT,
+            username TEXT,
             PRIMARY KEY (chat_id, user_id, type)
         )
         """
     )
 
-    # Lưu vòng chơi đang hoạt động theo chat
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS active_rounds (
-            chat_id INTEGER PRIMARY KEY,
-            round_data_json TEXT NOT NULL,
-            created_at TEXT NOT NULL
-        )
-        """
-    )
-
-    # Lưu kết quả game gần nhất theo chat
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS last_results (
-            chat_id INTEGER PRIMARY KEY,
-            data_json TEXT NOT NULL,
-            saved_at TEXT NOT NULL
-        )
-        """
-    )
-
-    # Lưu cache file_id của ảnh vé: {ticket_code: file_id}
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS photo_cache (
-            ticket_code TEXT PRIMARY KEY,
-            file_id TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-        """
-    )
-
-    # Lưu cache file_id của video note: {number: file_id}
-
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS video_note_cache (
-            number INTEGER PRIMARY KEY,
-            file_id TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-        """
-    )
-    
-    # Lưu lịch sử game trong mỗi vòng: {chat_id: games_json}
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS round_history (
-            chat_id INTEGER PRIMARY KEY,
-            games_json TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-        """
-    )
+    # Cập nhật table stats nếu thiếu cột username (migration)
+    try:
+        cur.execute("ALTER TABLE stats ADD COLUMN username TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass # Cột đã tồn tại
 
     conn.commit()
     conn.close()
@@ -170,17 +122,17 @@ def save_stats(chat_id: int, chat_stats: Dict[str, Dict[int, Dict[str, Any]]]) -
         
         wins = chat_stats.get("wins", {})
         for user_id, info in wins.items():
-            data_to_insert.append((chat_id, int(user_id), 'wins', float(info.get("count", 0.0)), info.get("name")))
+            data_to_insert.append((chat_id, int(user_id), 'wins', float(info.get("count", 0.0)), info.get("name"), info.get("username")))
 
         participations = chat_stats.get("participations", {})
         for user_id, info in participations.items():
-            data_to_insert.append((chat_id, int(user_id), 'participations', float(info.get("count", 0.0)), info.get("name")))
+            data_to_insert.append((chat_id, int(user_id), 'participations', float(info.get("count", 0.0)), info.get("name"), info.get("username")))
 
         if data_to_insert:
             cur.executemany(
                 """
-                INSERT INTO stats(chat_id, user_id, type, count, name)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO stats(chat_id, user_id, type, count, name, username)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 data_to_insert
             )
@@ -198,7 +150,7 @@ def load_stats(chat_id: int) -> Dict[str, Dict[int, Dict[str, Any]]]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT user_id, type, count, name FROM stats WHERE chat_id = ?",
+        "SELECT user_id, type, count, name, username FROM stats WHERE chat_id = ?",
         (chat_id,),
     )
     rows = cur.fetchall()
@@ -213,6 +165,7 @@ def load_stats(chat_id: int) -> Dict[str, Dict[int, Dict[str, Any]]]:
         target[uid] = {
             "count": float(r["count"]),
             "name": r["name"],
+            "username": r["username"],
         }
 
     return {"wins": wins, "participations": participations}
@@ -253,43 +206,6 @@ def load_last_result(chat_id: int) -> Optional[Dict[str, Any]]:
 
     return json.loads(row["data_json"])
 
-# ---------- Active Rounds ----------
-def save_active_round(chat_id: int, round_data: Dict[str, Any]) -> None:
-    """Lưu vòng chơi đang hoạt động."""
-    conn = get_connection()
-    cur = conn.cursor()
-    now = datetime.now().isoformat(timespec="seconds")
-    
-    cur.execute(
-        """
-        INSERT INTO active_rounds(chat_id, round_data_json, created_at)
-        VALUES (?, ?, ?)
-        ON CONFLICT(chat_id) DO UPDATE SET
-            round_data_json = excluded.round_data_json,
-            created_at = excluded.created_at
-        """,
-        (chat_id, json.dumps(round_data, ensure_ascii=False), now),
-    )
-    conn.commit()
-    conn.close()
-
-def load_all_active_rounds() -> Dict[int, Dict[str, Any]]:
-    """Tải tất cả các vòng chơi đang hoạt động để khôi phục khi restart."""
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT chat_id, round_data_json FROM active_rounds")
-    rows = cur.fetchall()
-    conn.close()
-    
-    return {row["chat_id"]: json.loads(row["round_data_json"]) for row in rows}
-
-def delete_active_round_row(chat_id: int) -> None:
-    """Xoá vòng chơi khi kết thúc."""
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM active_rounds WHERE chat_id = ?", (chat_id,))
-    conn.commit()
-    conn.close()
 
 # ---------- Photo Cache ----------
 def save_photo_cache(ticket_code: str, file_id: str) -> None:
@@ -357,43 +273,6 @@ def get_video_note_cache(number: int) -> Optional[str]:
         return row["file_id"]
     return None
 
-# ---------- Round History ----------
-def save_round_history(chat_id: int, games: list) -> None:
-    """Lưu danh sách các game trong vòng chơi hiện tại."""
-    conn = get_connection()
-    cur = conn.cursor()
-    now = datetime.now().isoformat(timespec="seconds")
-    
-    cur.execute(
-        """
-        INSERT INTO round_history(chat_id, games_json, updated_at)
-        VALUES (?, ?, ?)
-        ON CONFLICT(chat_id) DO UPDATE SET
-            games_json = excluded.games_json,
-            updated_at = excluded.updated_at
-        """,
-        (chat_id, json.dumps(games, ensure_ascii=False), now),
-    )
-    conn.commit()
-    conn.close()
-
-def load_all_round_histories() -> Dict[int, list]:
-    """Tải toàn bộ lịch sử vòng chơi (từ tất cả các chat) vào memory."""
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT chat_id, games_json FROM round_history")
-    rows = cur.fetchall()
-    conn.close()
-    
-    return {row["chat_id"]: json.loads(row["games_json"]) for row in rows}
-
-def delete_round_history_row(chat_id: int) -> None:
-    """Xoá lịch sử vòng chơi."""
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM round_history WHERE chat_id = ?", (chat_id,))
-    conn.commit()
-    conn.close()
 
 # ---------- Admin ----------
 def get_all_users() -> list[dict]:
@@ -450,3 +329,16 @@ def update_user_token(chat_id: int, user_id: int, amount: float) -> bool:
     conn.commit()
     conn.close()
     return True
+
+def get_user_id_by_username(chat_id: int, username: str) -> Optional[int]:
+    """Tìm user_id từ username trong một chat cụ thể."""
+    username = username.lstrip('@').lower()
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT user_id FROM stats WHERE chat_id = ? AND LOWER(username) = ? LIMIT 1",
+        (chat_id, username)
+    )
+    row = cur.fetchone()
+    conn.close()
+    return row["user_id"] if row else None

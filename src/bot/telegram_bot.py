@@ -30,8 +30,6 @@ from src.bot.handlers.base import (
 
 # Import game handlers
 from src.bot.handlers.game import (
-    vongmoi_command,
-    endround_command,
     newsession_command,
     setrange_command,
     startsession_command,
@@ -66,7 +64,7 @@ from src.bot.handlers.spin import (
 )
 
 # Import leaderboard handler
-from src.bot.handlers.leaderboard import leaderboard_command, leaderboard_round_command, show_user_token_command, reset_token_command, xoa_token_command
+from src.bot.handlers.leaderboard import leaderboard_command, show_user_token_command, reset_token_command, xoa_token_command
 
 # Import wait handler
 from src.bot.handlers.wait import wait_command
@@ -115,8 +113,6 @@ def setup_bot(token: str) -> Application:
         await application.bot.set_my_commands([
             ("start", "Hướng dẫn"),
             ("menu", "Menu riêng tư (Private)"),
-            ("vong_moi", "Tạo vòng chơi mới"),
-            ("ket_thuc_vong", "Kết thúc vòng chơi"),
             ("moi", "Tạo game mới"),
             ("quay", "Quay số"),
             ("dung", "Dừng quay tự động"),
@@ -131,7 +127,6 @@ def setup_bot(token: str) -> Application:
             ("xoa_token", "Xóa token 1 người"),
             ("clear_token", "Xóa sạch Token cả nhóm"),
             ("reset_token", "Reset Token về 0"),
-            ("xep_hang_vong", "BXH vòng hiện tại"),
             ("xep_hang", "BXH tổng"),
             ("doi", "Đợi số"),
             ("tro_giup", "Trợ giúp")
@@ -152,8 +147,6 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("menu", menu_command))
 
     # Game management
-    application.add_handler(CommandHandler("vong_moi", vongmoi_command))
-    application.add_handler(CommandHandler("ket_thuc_vong", endround_command))
     application.add_handler(CommandHandler("moi", newsession_command))
     application.add_handler(CommandHandler("pham_vi", setrange_command))
     application.add_handler(CommandHandler("bat_dau", startsession_command))
@@ -183,7 +176,7 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("xoa_token", xoa_token_command))
     application.add_handler(CommandHandler("clear_token", reset_token_command))
     application.add_handler(CommandHandler("reset_token", reset_token_command))
-    application.add_handler(CommandHandler("xep_hang_vong", leaderboard_round_command))
+    application.add_handler(CommandHandler("reset_token", reset_token_command))
     application.add_handler(CommandHandler("xep_hang", leaderboard_command))
     application.add_handler(CommandHandler("doi", wait_command))
     application.add_handler(CommandHandler("tro_giup", help_command))
