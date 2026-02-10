@@ -205,10 +205,10 @@ async def show_user_token_command(update: Update, context: ContextTypes.DEFAULT_
     recorded_count = len(players)
     
     # Thêm placeholder cho những thành viên chưa được bot "thấy"
-    if human_count > recorded_count:
-        gap = human_count - recorded_count
-        for _ in range(gap):
-            players.append({"name": "❔ (Chưa báo danh)", "token": 0.0})
+    # if human_count > recorded_count:
+    #     gap = human_count - recorded_count
+    #     for _ in range(gap):
+    #         players.append({"name": "❔ (Chưa báo danh)", "token": 0.0})
     
     # Build Header
     try:
@@ -217,8 +217,6 @@ async def show_user_token_command(update: Update, context: ContextTypes.DEFAULT_
         title = "Nhóm"
 
     header = f"📊 *TOKEN TỔNG:* `{escape_markdown(title)}`"
-    if human_count > 0:
-        header += f"\n👥 (Sĩ số: {human_count})"
     
     if not players:
         message = f"{header}\n\nChưa có dữ liệu token nào."
