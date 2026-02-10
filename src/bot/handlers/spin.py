@@ -325,7 +325,7 @@ async def status_command_logic(update: Update, context: ContextTypes.DEFAULT_TYP
     msg = (
         f"📊 *Trạng thái game hiện tại:*\n\n"
         f"🕹️ Game: `{escape_markdown(getattr(session, 'game_name', 'Không tên'))}`\n"
-        f"🔄 Vòng: `{escape_markdown(getattr(session, 'round_name', 'Không có'))}`\n"
+        f"💰 Tiền cược: `{getattr(session, 'bet_amount', 5.0):.1f}`\n"
         f"🔢 Đã quay: `{total - remaining}` / `{total}` số\n"
         f"🎯 Các số đã ra: " + (", ".join(f"`{n}`" for n in sorted(drawn)) if drawn else "_Chưa có_")
     )

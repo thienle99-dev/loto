@@ -34,11 +34,12 @@ class SessionManager:
         start: int,
         end: int,
         remove_after_spin: bool = True,
+        bet_amount: float = 5.0,
     ) -> WheelSession:
         """Tạo session mới cho một chat và lưu xuống SQLite (Async)."""
         from ..bot.wheel import create_wheel_session
 
-        session = create_wheel_session(start, end, remove_after_spin)
+        session = create_wheel_session(start, end, remove_after_spin, bet_amount)
         self._sessions[chat_id] = session
         await asyncio.to_thread(save_session, chat_id, session.to_dict())
         return session

@@ -13,6 +13,41 @@ logger = logging.getLogger(__name__)
 # Cache thời gian kiểm tra kinh của từng user: {(chat_id, user_id): datetime}
 last_check_time: dict[tuple[int, int], datetime] = {}
 
+@queued_handler
+async def cuoc_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /cuoc <số_tiền>"""
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+    
+    session = await session_manager.get_session(chat_id)
+    if not session:
+        await update.message.reply_text("❌ *Chưa có game nào!* Hãy dùng `/moi` trước.", parse_mode='Markdown')
+        return
+
+    if session.owner_id != user.id:
+        await update.message.reply_text("⚠️ Chỉ Host mới có quyền thay đổi tiền cược.")
+        return
+
+    if session.started:
+        await update.message.reply_text("⚠️ Game đã bắt đầu, không thể đổi tiền cược.")
+        return
+
+    if not context.args:
+        await update.message.reply_text(f"💰 Tiền cược hiện tại: `{session.bet_amount:.1f}`\nSử dụng: `/cuoc <số_tiền>` để thay đổi.", parse_mode='Markdown')
+        return
+
+    try:
+        amount = float(context.args[0])
+        if amount < 0:
+            await update.message.reply_text("❌ Tiền cược không được âm.")
+            return
+        
+        session.bet_amount = amount
+        await session_manager.persist_session(chat_id)
+        await update.message.reply_text(f"✅ Đã đặt tiền cược cho ván này là: `{amount:.1f}` token.", parse_mode='Markdown')
+    except ValueError:
+        await update.message.reply_text("❌ Vui lòng nhập một số hợp lệ.")
+
 async def newsession_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Logic xử lý lệnh /moi <tên_game>"""
     chat_id = update.effective_chat.id
@@ -61,7 +96,8 @@ async def newsession_command_logic(update: Update, context: ContextTypes.DEFAULT
             chat_id,
             1,
             MAX_NUMBERS,
-            DEFAULT_REMOVE_AFTER_SPIN
+            DEFAULT_REMOVE_AFTER_SPIN,
+            BET_AMOUNT
         )
         session.game_name = game_name
         session.owner_id = user_id
@@ -77,7 +113,8 @@ async def newsession_command_logic(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text(
             f"✅ *Đã tạo game mới\\!*\n\n"
             f"🕹️ Tên game: `{escape_markdown(game_name)}`\n"
-            f"📊 Khoảng số: `1 -> {MAX_NUMBERS}`\n"
+            f"� Tiền cược: `{session.bet_amount:.1f}`\n"
+            f"�📊 Khoảng số: `1 -> {MAX_NUMBERS}`\n"
             f"📊 Tổng số: `{session.get_total_numbers()}`\n"
             f"⚙️ Loại bỏ sau khi quay: `{'Có' if session.remove_after_spin else 'Không'}`\n\n"
             "Người chơi chọn vé bằng nút `/lay_ve` bên dưới.\n"
@@ -319,7 +356,7 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
                       if w.get("user_id") is not None and w.get("user_id") in ticket_holder_ids}
 
     token_per_winner = 0
-    bet_amount = BET_AMOUNT
+    bet_amount = getattr(session, "bet_amount", BET_AMOUNT)
 
     if total_players > 0 and unique_winners:
         num_winners = len(unique_winners)

@@ -34,7 +34,8 @@ from src.bot.handlers.game import (
     setrange_command,
     startsession_command,
     endsession_command,
-    toggle_remove_command
+    toggle_remove_command,
+    cuoc_command
 )
 
 # Import player handlers
@@ -47,8 +48,6 @@ from src.bot.handlers.player import (
     my_ticket_command
 )
 
-# Import summary handlers
-from src.bot.handlers.summary import summary_command
 
 # Import spin/status handlers
 from src.bot.handlers.spin import (
@@ -122,13 +121,13 @@ def setup_bot(token: str) -> Application:
             ("ve_cua_toi", "Xem vé của tôi"),
             ("trang_thai", "Trạng thái"),
             ("ket_thuc", "Kết thúc game"),
-            ("tong_ket", "Tổng kết game"),
             ("xem_token", "Xem token cá nhân"),
             ("xoa_token", "Xóa token 1 người"),
             ("clear_token", "Xóa sạch Token cả nhóm"),
             ("reset_token", "Reset Token về 0"),
             ("xep_hang", "BXH tổng"),
             ("doi", "Đợi số"),
+            ("cuoc", "Đặt tiền cược"),
             ("tro_giup", "Trợ giúp")
         ])
         # Bắt đầu worker pool để xử lý hàng đợi
@@ -152,6 +151,7 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("bat_dau", startsession_command))
     application.add_handler(CommandHandler("ket_thuc", endsession_command))
     application.add_handler(CommandHandler("toggle_remove", toggle_remove_command))
+    application.add_handler(CommandHandler("cuoc", cuoc_command))
 
     # Player management
     application.add_handler(CommandHandler("tham_gia", join_command))
@@ -171,7 +171,6 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("dat_lai", reset_command))
     application.add_handler(CommandHandler("xoa", clear_command))
     application.add_handler(CommandHandler("ket_qua", lastresult_command))
-    application.add_handler(CommandHandler("tong_ket", summary_command))
     application.add_handler(CommandHandler("xem_token", show_user_token_command))
     application.add_handler(CommandHandler("xoa_token", xoa_token_command))
     application.add_handler(CommandHandler("clear_token", reset_token_command))

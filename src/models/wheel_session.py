@@ -19,6 +19,7 @@ class WheelSession:
         game_name: Optional[str] = None,
         owner_id: Optional[int] = None,
         round_name: Optional[str] = None,
+        bet_amount: float = 5.0,
     ):
         """
         Khởi tạo wheel session
@@ -53,6 +54,8 @@ class WheelSession:
         self.owner_id = owner_id
         # Tên vòng chơi (vòng mới) mà session này thuộc về, nếu có
         self.round_name = round_name
+        # Số tiền cược cho mỗi ván
+        self.bet_amount = bet_amount
         # Danh sách người tham gia game: [{user_id, name}, ...]
         self.participants: list[dict] = []
         # Trạng thái game đã bắt đầu hay chưa (host dùng /bat_dau)
@@ -117,6 +120,7 @@ class WheelSession:
             'user_tickets': self.user_tickets,
             'waiting_numbers': {str(k): v for k, v in self.waiting_numbers.items()},
             'last_control_message_id': self.last_control_message_id,
+            'bet_amount': self.bet_amount,
         }
     
     @classmethod
@@ -130,6 +134,7 @@ class WheelSession:
             game_name=data.get('game_name'),
             owner_id=data.get('owner_id'),
             round_name=data.get('round_name'),
+            bet_amount=data.get('bet_amount', 5.0),
         )
         session.available_numbers = data.get('available_numbers', session.available_numbers)
         session.removed_numbers = data.get('removed_numbers', [])

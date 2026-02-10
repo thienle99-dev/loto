@@ -10,7 +10,8 @@ from ..models.wheel_session import WheelSession
 def create_wheel_session(
     start: int,
     end: int,
-    remove_after_spin: bool = True
+    remove_after_spin: bool = True,
+    bet_amount: float = 5.0
 ) -> WheelSession:
     """
     Tạo một wheel session mới
@@ -29,7 +30,8 @@ def create_wheel_session(
     return WheelSession(
         start_number=start,
         end_number=end,
-        remove_after_spin=remove_after_spin
+        remove_after_spin=remove_after_spin,
+        bet_amount=bet_amount
     )
 
 
