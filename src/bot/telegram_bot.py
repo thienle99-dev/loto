@@ -72,7 +72,7 @@ from src.bot.handlers.leaderboard import leaderboard_command, leaderboard_round_
 from src.bot.handlers.wait import wait_command
 
 # Import admin handler
-from src.bot.handlers.admin import account_list_command
+from src.bot.handlers.admin import account_list_command, set_token_command
 
 # Import inline handler
 from src.bot.handlers.inline import inline_query_handler
@@ -190,6 +190,7 @@ def setup_bot(token: str) -> Application:
     
     # Admin commands
     application.add_handler(CommandHandler("account_list", account_list_command))
+    application.add_handler(CommandHandler("set_token", set_token_command))
 
     # Inline Query Handler
     application.add_handler(InlineQueryHandler(inline_query_handler))

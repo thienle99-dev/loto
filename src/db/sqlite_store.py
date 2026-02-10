@@ -397,20 +397,56 @@ def delete_round_history_row(chat_id: int) -> None:
 
 # ---------- Admin ----------
 def get_all_users() -> list[dict]:
-    """Lấy danh sách tất cả user từng tham gia (deduplicated)."""
+    """Lấy danh sách tất cả user từng tham gia (kèm chat_id)."""
     conn = get_connection()
     cur = conn.cursor()
-    # Lấy user_id và name mới nhất (updated_at cao nhất hoặc chỉ đơn giản group by)
-    # Vì stats table không có updated_at cho từng dòng, ta lấy name từ stats.
-    # Thông thường name sẽ giống nhau hoặc ta lấy name nào cũng được.
+    # Lấy user_id, name và chat_id từ stats. 
+    # Một user có thể tham gia nhiều chat, ta lấy tất cả các cặp (chat, user).
     cur.execute(
         """
-        SELECT user_id, name 
+        SELECT chat_id, user_id, name 
         FROM stats 
-        GROUP BY user_id
+        WHERE type = 'wins'
+        GROUP BY chat_id, user_id
         """
     )
     rows = cur.fetchall()
     conn.close()
     
-    return [{"user_id": r["user_id"], "name": r["name"]} for r in rows]
+    return [{"chat_id": r["chat_id"], "user_id": r["user_id"], "name": r["name"]} for r in rows]
+
+def update_user_token(chat_id: int, user_id: int, amount: float) -> bool:
+    """Cập nhật token cho một user trong một chat cụ thể."""
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    # Kiểm tra xem bản ghi có tồn tại không
+    cur.execute(
+        "SELECT 1 FROM stats WHERE chat_id = ? AND user_id = ? AND type = 'wins'",
+        (chat_id, user_id)
+    )
+    exists = cur.fetchone()
+    
+    if exists:
+        cur.execute(
+            "UPDATE stats SET count = ? WHERE chat_id = ? AND user_id = ? AND type = 'wins'",
+            (amount, chat_id, user_id)
+        )
+    else:
+        # Nếu chưa có bản ghi 'wins', tạo mới
+        # Cần tìm name từ participations nếu có
+        cur.execute(
+            "SELECT name FROM stats WHERE chat_id = ? AND user_id = ? LIMIT 1",
+            (chat_id, user_id)
+        )
+        row = cur.fetchone()
+        name = row["name"] if row else str(user_id)
+        
+        cur.execute(
+            "INSERT INTO stats (chat_id, user_id, type, count, name) VALUES (?, ?, 'wins', ?, ?)",
+            (chat_id, user_id, amount, name)
+        )
+        
+    conn.commit()
+    conn.close()
+    return True
