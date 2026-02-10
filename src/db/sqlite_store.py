@@ -394,3 +394,23 @@ def delete_round_history_row(chat_id: int) -> None:
     cur.execute("DELETE FROM round_history WHERE chat_id = ?", (chat_id,))
     conn.commit()
     conn.close()
+
+# ---------- Admin ----------
+def get_all_users() -> list[dict]:
+    """Lấy danh sách tất cả user từng tham gia (deduplicated)."""
+    conn = get_connection()
+    cur = conn.cursor()
+    # Lấy user_id và name mới nhất (updated_at cao nhất hoặc chỉ đơn giản group by)
+    # Vì stats table không có updated_at cho từng dòng, ta lấy name từ stats.
+    # Thông thường name sẽ giống nhau hoặc ta lấy name nào cũng được.
+    cur.execute(
+        """
+        SELECT user_id, name 
+        FROM stats 
+        GROUP BY user_id
+        """
+    )
+    rows = cur.fetchall()
+    conn.close()
+    
+    return [{"user_id": r["user_id"], "name": r["name"]} for r in rows]

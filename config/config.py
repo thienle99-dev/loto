@@ -14,6 +14,11 @@ MAX_NUMBERS = 90  # Giới hạn số lượng số trong danh sách
 DEFAULT_REMOVE_AFTER_SPIN = True  # Mặc định có loại bỏ số sau khi quay
 WEB_APP_URL = os.getenv('WEB_APP_URL', 'https://your-public-url.com')  # URL cho Mini App
 
+# Admin Settings
+# Danh sách ID admin (comma separated string in .env: ADMIN_IDS=123,456)
+admin_ids_raw = os.getenv('ADMIN_IDS', '')
+ADMIN_IDS = [int(x.strip()) for x in admin_ids_raw.split(',') if x.strip().isdigit()]
+
 # Messages
 WELCOME_MESSAGE = r"""
 🎰 *Chào mừng đến với Loto Bot\!*  

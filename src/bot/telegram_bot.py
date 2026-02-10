@@ -71,6 +71,9 @@ from src.bot.handlers.leaderboard import leaderboard_command, leaderboard_round_
 # Import wait handler
 from src.bot.handlers.wait import wait_command
 
+# Import admin handler
+from src.bot.handlers.admin import account_list_command
+
 # Import inline handler
 from src.bot.handlers.inline import inline_query_handler
 from telegram.ext import InlineQueryHandler
@@ -184,6 +187,9 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("xep_hang", leaderboard_command))
     application.add_handler(CommandHandler("doi", wait_command))
     application.add_handler(CommandHandler("tro_giup", help_command))
+    
+    # Admin commands
+    application.add_handler(CommandHandler("account_list", account_list_command))
 
     # Inline Query Handler
     application.add_handler(InlineQueryHandler(inline_query_handler))
