@@ -35,7 +35,8 @@ from src.bot.handlers.game import (
     startsession_command,
     endsession_command,
     toggle_remove_command,
-    cuoc_command
+    cuoc_command,
+    reset_kinh_command
 )
 
 # Import player handlers
@@ -128,6 +129,7 @@ def setup_bot(token: str) -> Application:
             ("xep_hang", "BXH tổng"),
             ("doi", "Đợi số"),
             ("cuoc", "Đặt tiền cược"),
+            ("reset_kinh", "Reset danh sách kinh"),
             ("tro_giup", "Trợ giúp")
         ])
         # Bắt đầu worker pool để xử lý hàng đợi
@@ -152,6 +154,7 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("ket_thuc", endsession_command))
     application.add_handler(CommandHandler("toggle_remove", toggle_remove_command))
     application.add_handler(CommandHandler("cuoc", cuoc_command))
+    application.add_handler(CommandHandler("reset_kinh", reset_kinh_command))
 
     # Player management
     application.add_handler(CommandHandler("tham_gia", join_command))

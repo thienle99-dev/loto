@@ -548,3 +548,28 @@ async def toggle_remove_command(update: Update, context: ContextTypes.DEFAULT_TY
              InlineKeyboardButton("📋 Menu", callback_data=f"cmd:menu_fallback{suffix}")]
         ])
     )
+
+@queued_handler
+async def reset_kinh_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /reset_kinh - xoá sạch danh sách người kinh"""
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+    session = await session_manager.get_session(chat_id)
+
+    if not session:
+        await update.message.reply_text("❌ *Chưa có game nào đang chạy\\!*", parse_mode='Markdown')
+        return
+
+    # Kiểm tra quyền host
+    if getattr(session, "owner_id", None) != user.id:
+        await update.message.reply_text("❌ Chỉ *host* mới có quyền xoá toàn bộ danh sách người kinh\\.", parse_mode="Markdown")
+        return
+
+    if not getattr(session, "winners", []):
+        await update.message.reply_text("ℹ️ Danh sách người kinh đang trống\\.", parse_mode="Markdown")
+        return
+
+    session.winners = []
+    await session_manager.persist_session(chat_id)
+    
+    await update.message.reply_text("✅ *Đã xoá toàn bộ danh sách người kinh của ván này\\!*", parse_mode="Markdown")
