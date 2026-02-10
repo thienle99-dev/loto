@@ -53,6 +53,7 @@ async def set_token_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # 1. Kiểm tra Admin
     if user.id not in ADMIN_IDS:
+        logger.warning(f"User {user.id} không phải là Admin, không thể thực hiện lệnh /set_token")
         return
 
     # 2. Phân tích tham số
