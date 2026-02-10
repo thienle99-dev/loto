@@ -255,3 +255,38 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"❌ Thất bại: `{fail}`",
         parse_mode='Markdown'
     )
+
+async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /back_up - Gửi file database cho Admin"""
+    user = update.effective_user
+    chat = update.effective_chat
+    
+    # 1. Kiểm tra Admin
+    if user.id not in ADMIN_IDS:
+        return
+
+    # 2. Kiểm tra Chat riêng tư (Private) để bảo mật
+    if chat.type != 'private':
+        await update.message.reply_text("⚠️ Lệnh sao lưu chỉ có thể thực hiện trong chat riêng tư với bot.")
+        return
+
+    from src.db.sqlite_store import DB_PATH
+    import os
+
+    if not os.path.exists(DB_PATH):
+        await update.message.reply_text("❌ Không tìm thấy file cơ sở dữ liệu.")
+        return
+
+    try:
+        await update.message.reply_text("⏳ Đang chuẩn bị bản sao lưu...")
+        with open(DB_PATH, 'rb') as db_file:
+            caption = f"💾 *Bản sao lưu cơ sở dữ liệu*\n📅 Ngày: `{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}`"
+            await context.bot.send_document(
+                chat_id=chat.id,
+                document=db_file,
+                filename=f"loto_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db",
+                caption=caption,
+                parse_mode='Markdown'
+            )
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi khi gửi file sao lưu: {str(e)}")
