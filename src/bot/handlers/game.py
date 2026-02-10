@@ -604,6 +604,12 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
         }
         round_history[chat_id].append(game_record)
         logger.info(f"Saved game to round_history. Chat {chat_id} now has {len(round_history[chat_id])} games. Participants: {len(actual_players)}")
+
+        # Lưu lịch sử vòng chơi vào DB
+        from src.db.sqlite_store import save_round_history
+        await asyncio.to_thread(save_round_history, chat_id, round_history[chat_id])
+        
+        # Lưu session hiện tại xuống JSON session history (backup)
     
     await session_manager.delete_session(chat_id)
 

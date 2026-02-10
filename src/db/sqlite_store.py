@@ -81,12 +81,22 @@ def init_db() -> None:
 
     # Lưu cache file_id của video note: {number: file_id}
 
-    # Lưu cache file_id của video note: {number: file_id}
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS video_note_cache (
             number INTEGER PRIMARY KEY,
             file_id TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    
+    # Lưu lịch sử game trong mỗi vòng: {chat_id: games_json}
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS round_history (
+            chat_id INTEGER PRIMARY KEY,
+            games_json TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
         """
@@ -346,3 +356,41 @@ def get_video_note_cache(number: int) -> Optional[str]:
     if row:
         return row["file_id"]
     return None
+
+# ---------- Round History ----------
+def save_round_history(chat_id: int, games: list) -> None:
+    """Lưu danh sách các game trong vòng chơi hiện tại."""
+    conn = get_connection()
+    cur = conn.cursor()
+    now = datetime.now().isoformat(timespec="seconds")
+    
+    cur.execute(
+        """
+        INSERT INTO round_history(chat_id, games_json, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(chat_id) DO UPDATE SET
+            games_json = excluded.games_json,
+            updated_at = excluded.updated_at
+        """,
+        (chat_id, json.dumps(games, ensure_ascii=False), now),
+    )
+    conn.commit()
+    conn.close()
+
+def load_all_round_histories() -> Dict[int, list]:
+    """Tải toàn bộ lịch sử vòng chơi (từ tất cả các chat) vào memory."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT chat_id, games_json FROM round_history")
+    rows = cur.fetchall()
+    conn.close()
+    
+    return {row["chat_id"]: json.loads(row["games_json"]) for row in rows}
+
+def delete_round_history_row(chat_id: int) -> None:
+    """Xoá lịch sử vòng chơi."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM round_history WHERE chat_id = ?", (chat_id,))
+    conn.commit()
+    conn.close()
