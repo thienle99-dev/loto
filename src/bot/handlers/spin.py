@@ -23,21 +23,21 @@ logger = logging.getLogger(__name__)
 last_spin_time: dict[int, datetime] = {}
 last_check_time: dict[tuple[int, int], datetime] = {}
 
-async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
+async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> tuple[bool, bool]:
     """
     Thực hiện quay số và gửi tin nhắn kết quả.
-    Trả về True nếu thành công, False nếu không thể quay tiếp.
+    Trả về (success, hit_waiter).
     """
     session = await session_manager.get_session(chat_id)
     if not session:
-        return False
+        return False, False
 
     if not getattr(session, "started", False):
-        return False
+        return False, False
 
     if session.is_empty():
         # Trả về True để spin_command_logic gọi spin_wheel và bắt được ValueError
-        return True
+        return True, False
 
     try:
         now = datetime.now()
@@ -112,9 +112,12 @@ async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool
             stats_msg += "\n"
         
         # Kiểm tra và tag người đang đợi số này
+        waiter_hit = False
         if hasattr(session, 'waiting_numbers') and number in session.waiting_numbers:
             waiters = session.waiting_numbers.pop(number)
             if waiters:
+                waiter_hit = True
+                mentions = []
                 mentions = []
                 for uid, name in waiters:
                     mentions.append(f"[{escape_markdown(name)}](tg://user?id={uid})")
@@ -151,7 +154,7 @@ async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool
         session.last_control_message_id = sent_control_msg.message_id
         
         await session_manager.persist_session(chat_id)
-        return True
+        return True, waiter_hit
     except Exception as e:
         logger.error(f"Error in perform_spin: {e}", exc_info=True)
         # Re-raise to be caught by the caller
@@ -160,10 +163,16 @@ async def perform_spin(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool
 async def spin_job(context: ContextTypes.DEFAULT_TYPE):
     """Callback cho JobQueue để quay số tự động"""
     chat_id = context.job.chat_id
-    success = await perform_spin(chat_id, context)
+    success, hit_waiter = await perform_spin(chat_id, context)
+    
     if not success:
         context.job.schedule_removal()
         await context.bot.send_message(chat_id=chat_id, text="🛑 *Dừng quay tự động* (Game đã kết thúc hoặc hết số).", parse_mode='Markdown')
+        return
+
+    if hit_waiter:
+        context.job.schedule_removal()
+        await context.bot.send_message(chat_id=chat_id, text="🛑 *Dừng quay tự động* (Đã tìm thấy số có người đợi).", parse_mode='Markdown')
 
 async def spin_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Logic xử lý lệnh /quay"""
@@ -234,7 +243,7 @@ async def spin_command_logic(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     
     try:
-        success = await perform_spin(chat_id, context)
+        success, hit_waiter = await perform_spin(chat_id, context)
         if not success:
             # Trường hợp game chưa bắt đầu hoặc session không tồn tại đã được check ở trên
             # nhưng nếu vẫn lọt xuống đây thì báo lỗi nhẹ
@@ -591,21 +600,61 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def xoakinh_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /xoa_kinh"""
     chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
+    user = update.effective_user
     session = await session_manager.get_session(chat_id)
 
     if not session or not getattr(session, "winners", []):
         await update.message.reply_text("❌ Không có vé nào để xoá.", parse_mode="Markdown")
         return
 
+    # Xác định target_user_id
+    target_user_id = user.id
+    target_name = "của bạn"
+    is_host = getattr(session, "owner_id", None) == user.id
+
+    # 1. Ưu tiên Reply
+    if update.message.reply_to_message:
+        if not is_host:
+            await update.message.reply_text("❌ Chỉ *host* mới có quyền xoá vé của người khác.", parse_mode="Markdown")
+            return
+        target_user_id = update.message.reply_to_message.from_user.id
+        target_name = f"của [{escape_markdown(update.message.reply_to_message.from_user.full_name)}](tg://user?id={target_user_id})"
+
+    # 2. Hoặc Mention
+    elif context.args:
+        if not is_host:
+            await update.message.reply_text("❌ Chỉ *host* mới có quyền xoá vé của người khác.", parse_mode="Markdown")
+            return
+        
+        arg = context.args[0]
+        # Tìm user_id từ mention nếu có thể (Telegram API limited simplified check)
+        # Ở đây ta check nếu là số thì coi là user_id, còn nếu ko thì tìm trong winners
+        try:
+            target_user_id = int(arg)
+        except ValueError:
+            # Tìm trong danh sách winners xem có ai trùng name/username không
+            found = False
+            for w in session.winners:
+                if arg.lower() in (w.get("name") or "").lower():
+                    target_user_id = w.get("user_id")
+                    target_name = f"của {escape_markdown(w.get('name'))}"
+                    found = True
+                    break
+            if not found:
+                await update.message.reply_text(f"❌ Không tìm thấy người chơi nào khớp với `{arg}`.", parse_mode="Markdown")
+                return
+
     winners = list(session.winners)
+    found_any = False
     for i in range(len(winners)-1, -1, -1):
-        if winners[i].get("user_id") == user_id:
+        if winners[i].get("user_id") == target_user_id:
             removed = winners.pop(i)
             session.winners = winners
             await session_manager.persist_session(chat_id)
             nums_str = ", ".join(f"`{n}`" for n in (removed.get("numbers") or []))
-            await update.message.reply_text(f"✅ Đã xoá vé trúng thưởng gần nhất của bạn.\n\n🧾 Vé: {nums_str}", parse_mode="Markdown")
-            return
+            await update.message.reply_text(f"✅ Đã xoá vé trúng thưởng gần nhất {target_name}.\n\n🧾 Vé: {nums_str}", parse_mode="Markdown")
+            found_any = True
+            break # Chỉ xoá 1 vé gần nhất
 
-    await update.message.reply_text("ℹ️ Bạn chưa có vé trúng thưởng nào.", parse_mode="Markdown")
+    if not found_any:
+        await update.message.reply_text(f"ℹ️ Không tìm thấy vé trúng thưởng nào {target_name}.", parse_mode="Markdown")

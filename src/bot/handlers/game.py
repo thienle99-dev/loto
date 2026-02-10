@@ -506,8 +506,10 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
 
     # Tính điểm token theo công thức mới: CHỈ TÍNH KHI CÓ NGƯỜI THẮNG
     wins = chat_stats["wins"]
+    # Lấy danh sách winner (CHỈ TÍNH NGƯỜI CÓ TRONG DANH SÁCH actual_players)
     unique_winners = {w.get("user_id"): w.get("name") or str(w.get("user_id")) 
-                      for w in getattr(session, "winners", []) if w.get("user_id") is not None}
+                      for w in getattr(session, "winners", []) 
+                      if w.get("user_id") is not None and w.get("user_id") in ticket_holder_ids}
 
     token_per_winner = 0
     bet_amount = BET_AMOUNT
