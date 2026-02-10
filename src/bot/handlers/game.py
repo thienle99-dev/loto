@@ -518,6 +518,10 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
         # Công thức zero-sum: (Tổng người chơi * cược / Số người thắng) - cược
         token_per_winner = (total_players * bet_amount / num_winners) - bet_amount
         
+        split_msg = ""
+        if num_winners > 1:
+            split_msg = f"\n💡 *Chia đều thưởng:* Mỗi người trúng nhận `+{token_per_winner:.1f}` token từ {total_players - num_winners} người thua."
+
         for uid, name in unique_winners.items():
             info = wins.get(uid, {"count": 0.0, "name": name})
             info["count"] += token_per_winner
@@ -554,6 +558,8 @@ async def endsession_command_logic(update: Update, context: ContextTypes.DEFAULT
     token_changes_msg = ""
     if token_results:
         token_changes_msg = "\n\n💰 *Biến động Token ván này:*\n" + "\n".join(token_results)
+        if 'split_msg' in locals() and split_msg:
+            token_changes_msg += split_msg
         
     # Tính toán Token tổng cộng trong vòng (cumulative)
     cumulative_results = []

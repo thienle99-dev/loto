@@ -136,14 +136,14 @@ async def show_user_token_command(update: Update, context: ContextTypes.DEFAULT_
             # Phân biệt giữa "chưa có game nào kết thúc" vs "vòng rỗng"
             if has_active_game:
                 await update.message.reply_text(
-                    f"📊 *DANH SÁCH TOKEN VÒNG: {escape_markdown(round_name)}*\n\n"
+                    f"📊 *DANH SÁCH TOKEN VÒNG: {round_name}*\n\n"
                     "ℹ️ Vòng mới bắt đầu\\. Hãy kết thúc ván đầu tiên bằng `/ket_thuc` để xem token\\!\n\n"
                     "📝 _Game hiện tại chưa được tính vào tổng\\._",
                     parse_mode='Markdown'
                 )
             else:
                 await update.message.reply_text(
-                    f"📊 *DANH SÁCH TOKEN VÒNG: {escape_markdown(round_name)}*\n\n"
+                    f"📊 *DANH SÁCH TOKEN VÒNG: {round_name}*\n\n"
                     "ℹ️ Chưa có game nào kết thúc trong vòng này\\.",
                     parse_mode='Markdown'
                 )

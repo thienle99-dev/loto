@@ -88,21 +88,23 @@ def calculate_round_tokens(games: list) -> dict:
     for game in games:
         partics = game.get("participants", [])
         winners = game.get("winners", [])
-        total_players = len(partics)
         
-        # Xác định winners ID (ép kiểu int)
+        # Lấy danh sách uid những người thực sự tham gia (có vé)
+        actual_player_ids = {p.get("user_id") for p in partics if p.get("user_id") is not None}
+        total_players = len(actual_player_ids)
+        
+        # Xác định winners ID (chỉ tính người có trong danh sách participants thực sự)
         winner_ids = set()
         for w in winners:
             raw_id = w.get("user_id")
-            if raw_id is not None:
+            if raw_id is not None and raw_id in actual_player_ids:
                 try:
                     winner_ids.add(int(raw_id))
                 except (ValueError, TypeError):
                     pass
         
         num_winners = len(winner_ids)
-        token_win = 0
-        if num_winners > 0:
+        if total_players > 0 and num_winners > 0:
             token_win = (total_players * bet_amount / num_winners) - bet_amount
             for p in partics:
                 raw_uid = p.get("user_id")
@@ -124,9 +126,8 @@ def calculate_round_tokens(games: list) -> dict:
                     user_tokens[uid]["token"] += token_win
                 else:
                     user_tokens[uid]["token"] -= bet_amount
-        else:
-            # Nếu không có ai thắng, vẫn khởi tạo user_tokens cho những người tham gia (nếu chưa có)
-            # để đảm bảo họ hiện diện trong danh sách với token là 0
+        elif total_players > 0:
+            # Nếu không có ai thắng, khởi tạo/cập nhật user_tokens cho những người tham gia
             for p in partics:
                 raw_uid = p.get("user_id")
                 if raw_uid is None: continue
