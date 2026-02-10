@@ -10,6 +10,7 @@ root_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(root_dir))
 
 import logging
+from datetime import datetime
 from config.config import TELEGRAM_BOT_TOKEN
 from src.bot.telegram_bot import setup_bot
 from src.db.sqlite_store import init_db
@@ -19,6 +20,9 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+# Start time for uptime calculation
+bot_start_time = datetime.now()
 
 
 def main():

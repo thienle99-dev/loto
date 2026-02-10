@@ -351,3 +351,30 @@ def get_user_id_by_username(chat_id: int, username: str) -> Optional[int]:
     row = cur.fetchone()
     conn.close()
     return row["user_id"] if row else None
+
+def get_total_users_count() -> int:
+    """Đếm tổng số user duy nhất trong DB."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(DISTINCT user_id) as count FROM stats")
+    row = cur.fetchone()
+    conn.close()
+    return row["count"] if row else 0
+
+def get_total_groups_count() -> int:
+    """Đếm tổng số nhóm duy nhất trong DB."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(DISTINCT chat_id) as count FROM stats")
+    row = cur.fetchone()
+    conn.close()
+    return row["count"] if row else 0
+
+def get_unique_groups() -> list[int]:
+    """Lấy danh sách chat_id duy nhất từ stats và sessions."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT DISTINCT chat_id FROM stats UNION SELECT DISTINCT chat_id FROM sessions")
+    rows = cur.fetchall()
+    conn.close()
+    return [row["chat_id"] for row in rows]

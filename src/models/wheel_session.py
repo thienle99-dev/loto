@@ -18,7 +18,6 @@ class WheelSession:
         session_id: Optional[str] = None,
         game_name: Optional[str] = None,
         owner_id: Optional[int] = None,
-        round_name: Optional[str] = None,
         bet_amount: float = 5.0,
     ):
         """
@@ -52,8 +51,6 @@ class WheelSession:
         # Thông tin meta cho game/session
         self.game_name = game_name
         self.owner_id = owner_id
-        # Tên vòng chơi (vòng mới) mà session này thuộc về, nếu có
-        self.round_name = round_name
         # Số tiền cược cho mỗi ván
         self.bet_amount = bet_amount
         # Danh sách người tham gia game: [{user_id, name}, ...]
@@ -112,7 +109,6 @@ class WheelSession:
             'history': self.history,
             'game_name': self.game_name,
             'owner_id': self.owner_id,
-            'round_name': self.round_name,
             'participants': self.participants,
             'started': self.started,
             'winners': self.winners,
@@ -133,7 +129,6 @@ class WheelSession:
             session_id=data.get('id'),
             game_name=data.get('game_name'),
             owner_id=data.get('owner_id'),
-            round_name=data.get('round_name'),
             bet_amount=data.get('bet_amount', 5.0),
         )
         session.available_numbers = data.get('available_numbers', session.available_numbers)

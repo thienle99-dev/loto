@@ -2,8 +2,10 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from config.config import ADMIN_IDS
 from src.db.sqlite_store import get_all_users
-from src.bot.utils import escape_markdown
+from src.bot.utils import escape_markdown, session_manager
 import asyncio
+import psutil
+from datetime import datetime
 
 async def account_list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler cho lệnh /account_list - Chỉ dành cho Admin trong chat riêng tư"""
@@ -176,5 +178,80 @@ async def set_token_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     await update.message.reply_text(
         f"✅ Đã đặt token cho User `{target_user_id}` trong Chat `{target_chat_id}` thành `{amount:.1f}`.",
+        parse_mode='Markdown'
+    )
+
+async def system_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /he_thong - Thống kê hệ thống cho Admin"""
+    user = update.effective_user
+    if user.id not in ADMIN_IDS:
+        return
+
+    from src.main import bot_start_time
+    from src.db.sqlite_store import get_total_users_count, get_total_groups_count
+    
+    uptime = datetime.now() - bot_start_time
+    uptime_str = str(uptime).split('.')[0] # Bỏ microsecond
+    
+    active_sessions = len(session_manager.sessions)
+    total_users = await asyncio.to_thread(get_total_users_count)
+    total_groups = await asyncio.to_thread(get_total_groups_count)
+    
+    # System info
+    cpu_usage = psutil.cpu_percent()
+    memory = psutil.virtual_memory()
+    
+    message = "📊 *THỐNG KÊ HỆ THỐNG*\n"
+    message += "━━━━━━━━━━━━━━━━━━━\n\n"
+    message += f"⏱️ *Uptime:* `{uptime_str}`\n"
+    message += f"🎮 *Game đang chạy:* `{active_sessions}`\n"
+    message += f"👥 *Tổng người chơi:* `{total_users}`\n"
+    message += f"🏘️ *Tổng nhóm:* `{total_groups}`\n\n"
+    message += "⚙️ *Tài nguyên máy chủ:*\n"
+    message += f"• CPU: `{cpu_usage}%`\n"
+    message += f"• RAM: `{memory.percent}%` ({memory.used // (1024*1024)}MB/{memory.total // (1024*1024)}MB)\n"
+    message += "\n━━━━━━━━━━━━━━━━━━━"
+    
+    await update.message.reply_text(message, parse_mode='Markdown')
+
+async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler cho lệnh /thong_bao - Gửi tin nhắn đến tất cả nhóm"""
+    user = update.effective_user
+    if user.id not in ADMIN_IDS:
+        return
+
+    if not context.args:
+        await update.message.reply_text("⚠️ Vui lòng nhập nội dung thông báo: `/thong_bao <nội dung>`")
+        return
+
+    broadcast_msg = " ".join(context.args)
+    from src.db.sqlite_store import get_unique_groups
+    chat_ids = await asyncio.to_thread(get_unique_groups)
+    
+    if not chat_ids:
+        await update.message.reply_text("ℹ️ Không tìm thấy nhóm nào để gửi thông báo.")
+        return
+
+    status_msg = await update.message.reply_text(f"⏳ Đang gửi thông báo đến `{len(chat_ids)}` nhóm...")
+    
+    success = 0
+    fail = 0
+    
+    header = "📢 *THÔNG BÁO TỪ QUẢN TRỊ VIÊN*\n━━━━━━━━━━━━━━━━━━━\n\n"
+    full_msg = header + broadcast_msg
+    
+    for cid in chat_ids:
+        try:
+            await context.bot.send_message(chat_id=cid, text=full_msg, parse_mode='Markdown')
+            success += 1
+            # Rate limiting
+            await asyncio.sleep(0.1) 
+        except Exception:
+            fail += 1
+            
+    await status_msg.edit_text(
+        f"✅ *Hoàn tất gửi thông báo!*\n\n"
+        f"🚀 Thành công: `{success}`\n"
+        f"❌ Thất bại: `{fail}`",
         parse_mode='Markdown'
     )

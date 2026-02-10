@@ -72,7 +72,7 @@ from src.bot.handlers.leaderboard import leaderboard_command, show_user_token_co
 from src.bot.handlers.wait import wait_command
 
 # Import admin handler
-from src.bot.handlers.admin import account_list_command, set_token_command, group_list_command
+from src.bot.handlers.admin import account_list_command, set_token_command, group_list_command, system_stats_command, broadcast_command
 
 # Import inline handler
 from src.bot.handlers.inline import inline_query_handler
@@ -133,6 +133,8 @@ def setup_bot(token: str) -> Application:
             ("cuoc", "Đặt tiền cược"),
             ("reset_kinh", "Reset danh sách kinh"),
             ("danh_sach_nhom", "Danh sách nhóm (Admin)"),
+            ("he_thong", "Thống kê (Admin)"),
+            ("thong_bao", "Thông báo (Admin)"),
             ("tro_giup", "Trợ giúp")
         ])
         # Bắt đầu worker pool để xử lý hàng đợi
@@ -190,6 +192,8 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("account_list", account_list_command))
     application.add_handler(CommandHandler("set_token", set_token_command))
     application.add_handler(CommandHandler("danh_sach_nhom", group_list_command))
+    application.add_handler(CommandHandler("he_thong", system_stats_command))
+    application.add_handler(CommandHandler("thong_bao", broadcast_command))
 
     # Inline Query Handler
     application.add_handler(InlineQueryHandler(inline_query_handler))

@@ -1,6 +1,7 @@
 # Core dependencies
 python-telegram-bot[job-queue]>=20.0
 python-dotenv>=1.0.0
+psutil>=5.9.0
 
 # Nếu muốn làm Discord bot:
 # discord.py>=2.0

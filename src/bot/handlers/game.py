@@ -108,8 +108,6 @@ async def newsession_command_logic(update: Update, context: ContextTypes.DEFAULT
         target_chat_id = chat_id
         suffix = f":{target_chat_id}"
 
-        round_name = session.round_name if hasattr(session, 'round_name') else "Không có"
-
         await update.message.reply_text(
             f"✅ *Đã tạo game mới\\!*\n\n"
             f"🕹️ Tên game: `{escape_markdown(game_name)}`\n"
@@ -201,8 +199,6 @@ async def setrange_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         target_chat_id = chat_id
         suffix = f":{target_chat_id}"
-
-        round_name = session.round_name if hasattr(session, 'round_name') else "Không có"
 
         await update.message.reply_text(
             f"✅ *Đã tạo game mới\\!*\n\n"
